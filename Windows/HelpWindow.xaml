@@ -1,0 +1,58 @@
+﻿<local:BaseWindow x:Class="glFTPd_Commander.Windows.HelpWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:glFTPd_Commander.Windows"
+        Title="Help - glFTPd Commander" 
+        Height="768" 
+        Width="1024"
+        ResizeMode="CanResize" WindowStartupLocation="CenterOwner">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <TextBlock TextWrapping="Wrap" Padding="15" FontSize="14">
+            <Run FontWeight="Bold" FontSize="16">glFTPd Commander - User Guide</Run>
+            <LineBreak/><LineBreak/>
+            Welcome to glFTPd Commander, a powerful GUI for managing your glFTPd server via FTP.
+            <LineBreak/><LineBreak/>
+
+            <Run FontWeight="Bold">Getting Started</Run><LineBreak/>
+            1. Launch the application.<LineBreak/>
+            2. Use Sites -> Connect to select a saved connection.<LineBreak/><LineBreak/>
+
+            <Run FontWeight="Bold">Managing FTP Connections</Run><LineBreak/>
+            • Sites -> Settings lets you add, edit, or remove connection profiles.<LineBreak/>
+            • Connections are stored encrypted in ftpconfig.txt.<LineBreak/><LineBreak/>
+
+            <Run FontWeight="Bold">Main Interface</Run><LineBreak/>
+            • Left Tree: Displays users (active/deleted) and groups.<LineBreak/>
+            • Right Panel: Shows user or group details based on selection.<LineBreak/><LineBreak/>
+            
+            <Run FontWeight="Bold">How Changes Are Applied</Run><LineBreak/>
+            • Most fields in glFTPd Commander — such as user flags, tagline, group description, or login limits — are updated when the field <Run FontWeight="Bold">loses focus</Run>.<LineBreak/>
+            • To apply your changes: click outside the field or press <Run FontStyle="Italic">Tab</Run> after editing.<LineBreak/>
+            • If you don’t change focus, your update will <Run FontWeight="Bold">not</Run> be saved or sent to the FTP server.<LineBreak/><LineBreak/>
+
+            <Run FontWeight="Bold">User Management</Run><LineBreak/>
+            • Add User: Requires username, password, group, and IP.<LineBreak/>
+            • Edit flags, ratios, logins, tagline, and IP restrictions.<LineBreak/>
+            • Take/Give credits in MiB, GiB, or TiB.<LineBreak/>
+            • Delete/Purge users with caution.<LineBreak/><LineBreak/>
+
+            <Run FontWeight="Bold">Group Management</Run><LineBreak/>
+            • Add Group: Define name and description.<LineBreak/>
+            • Edit slots, max logins, comments, and description.<LineBreak/>
+            • Promote/Demote admins or remove group entirely.<LineBreak/><LineBreak/>
+
+            <Run FontWeight="Bold">Security</Run><LineBreak/>
+            • SSL certs are validated and can be remembered via a prompt.<LineBreak/>
+            • All connections are forced into using either explicit or implicit SSL.<LineBreak/><LineBreak/>
+
+            <Run FontWeight="Bold">Tips</Run><LineBreak/>
+            • ESC closes open views.<LineBreak/>
+            • Icons: * SiteOp, + Admin, 🔒 Deleted users.<LineBreak/>
+            • Hover for tooltips in most fields.<LineBreak/><LineBreak/>
+            
+            <Run FontWeight="Bold">Help</Run><LineBreak/>
+            • View this window via Help -> Index.<LineBreak/>
+            • Version details under Help -> About.<LineBreak/>
+        </TextBlock>
+    </ScrollViewer>
+</local:BaseWindow>
