@@ -311,15 +311,24 @@ namespace glFTPd_Commander
 
                 // INCREMENTAL UPDATE:
                 if (RootItems.Count == 0)
+                {
                     RootItems.Add(root);
+                    // Expand all nodes only on first load
+                    foreach (var item in RootItems)
+                        SetExpandedRecursive(item, true);
+                }
                 else
+                {
+                    // Save expanded state before update
                     expandedKeys.Clear();
                     SaveExpandedNodes(RootItems);
+
+                    // Update the tree while preserving structure
                     UpdateTree(RootItems, new List<FtpTreeItem> { root });
+
+                    // Restore expanded state after update
                     RestoreExpandedNodes(RootItems);
-                // Expand all nodes after loading/updating the tree
-                foreach (var item in RootItems)
-                    SetExpandedRecursive(item, true);
+                }
             }
             catch (Exception ex)
             {
