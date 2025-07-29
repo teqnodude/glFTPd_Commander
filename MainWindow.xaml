@@ -1,4 +1,5 @@
 ﻿<Window x:Class="glFTPd_Commander.MainWindow"
+        x:Name="RootWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:glFTPd_Commander"
@@ -7,6 +8,7 @@
         WindowStartupLocation="CenterScreen">
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+        <local:RemoveCustomCommandProxy x:Key="RemoveCustomCommandProxy" Command="{Binding RemoveCustomCommandCommand, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}}}" />
     </Window.Resources>
     <Grid x:Name="RootFadeContainer">
         <DockPanel Background="{DynamicResource BackgroundBrush}">
@@ -106,38 +108,89 @@
                     <TabItem Header="Custom Commands">
                         <Grid Margin="10">
                             <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="*" />
+                                <!-- one row: everything -->
                             </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2*" />
+                                <!-- left: commands & output -->
+                                <ColumnDefinition Width="*" />
+                                <!-- right: custom buttons -->
+                            </Grid.ColumnDefinitions>
 
-                            <!-- Command input -->
-                            <DockPanel Grid.Row="0" Margin="0,0,0,5">
-                                <ComboBox x:Name="CommandInputComboBox"
-                                            Width="700"
-                                            IsEditable="True"
-                                            IsReadOnly="False"
-                                            Margin="0,0,5,0"
-                                            HorizontalAlignment="Left"
-                                            VerticalAlignment="Center"
-                                            KeyDown="CommandInputComboBox_KeyDown"
-                                            ToolTipService.InitialShowDelay="100"    
-                                            ToolTip="Enter a SITE command (e.g., SITE USERS)" />
-                            </DockPanel>
+                            <!-- LEFT SIDE: Command input and output -->
+                            <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,10,0">
+                                <!-- Command input -->
+                                <DockPanel Margin="0,0,0,5">
+                                    <ComboBox x:Name="CommandInputComboBox"
+                                                Width="700"
+                                                IsEditable="True"
+                                                IsReadOnly="False"
+                                                Margin="0,0,5,0"
+                                                HorizontalAlignment="Left"
+                                                VerticalAlignment="Center"
+                                                KeyDown="CommandInputComboBox_KeyDown"
+                                                ToolTipService.InitialShowDelay="100"    
+                                                ToolTip="Enter a SITE command (e.g., SITE USERS)" />
+                                </DockPanel>
+                                <!-- Terminal output -->
+                                <TextBox x:Name="CommandOutputTextBox"
+                                           FontFamily="Consolas"
+                                           FontSize="13"
+                                           IsReadOnly="True"
+                                           TextWrapping="Wrap"
+                                           VerticalScrollBarVisibility="Auto"
+                                           HorizontalScrollBarVisibility="Auto"
+                                           Background="Black"
+                                           Foreground="LightGreen"
+                                           AcceptsReturn="True"
+                                           Height="800"/>
+                            </StackPanel>
 
-                            <!-- Terminal output -->
-                            <TextBox x:Name="CommandOutputTextBox"
-                                       Grid.Row="1"
-                                       FontFamily="Consolas"
-                                       FontSize="13"
-                                       IsReadOnly="True"
-                                       TextWrapping="Wrap"
-                                       VerticalScrollBarVisibility="Auto"
-                                       HorizontalScrollBarVisibility="Auto"
-                                       Background="Black"
-                                       Foreground="LightGreen"
-                                       AcceptsReturn="True" />
+                            <!-- RIGHT SIDE: 20 custom command buttons in a 2x10 grid -->
+                            <ItemsControl Grid.Row="0" Grid.Column="1" VerticalAlignment="Top"
+                                          ItemsSource="{Binding CustomCommandSlots, RelativeSource={RelativeSource AncestorType=Window}}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <UniformGrid Columns="2" Rows="10"/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Button Content="{Binding ButtonText}"
+                                                Margin="0,0,10,20"
+                                                Padding="18,14"
+                                                FontSize="15"
+                                                MinWidth="150"
+                                                MinHeight="64"
+                                                Background="{DynamicResource SystemControlBackgroundAltHighBrush}"
+                                                Foreground="White"
+                                                BorderThickness="2"
+                                                BorderBrush="{DynamicResource SystemControlHighlightAccentBrush}"
+                                                HorizontalContentAlignment="Center"
+                                                VerticalContentAlignment="Center"
+                                                Command="{Binding DataContext.CustomCommandSlotClickCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                CommandParameter="{Binding}">
+                                            <Button.ContextMenu>
+                                                <ContextMenu>
+                                                    <MenuItem Header="Remove"
+                                                              Visibility="{Binding IsConfigured, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                                              Command="{Binding Command, Source={StaticResource RemoveCustomCommandProxy}}"
+                                                              CommandParameter="{Binding}" />
+                                                    <MenuItem Header="Not Configured"
+                                                              Visibility="{Binding IsConfigured, Converter={StaticResource InverseBooleanToVisibilityConverter}}"
+                                                              IsEnabled="False" />
+
+                                                </ContextMenu>
+                                            </Button.ContextMenu>
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
                         </Grid>
                     </TabItem>
+
 
                 </TabControl>
             </Grid>

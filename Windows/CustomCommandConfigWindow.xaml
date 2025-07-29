@@ -1,0 +1,28 @@
+﻿<local:BaseWindow x:Class="glFTPd_Commander.Windows.CustomCommandConfigWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:glFTPd_Commander.Windows"
+        Title="Configure Custom Command" 
+        SizeToContent="WidthAndHeight"                  
+        WindowStartupLocation="CenterOwner" 
+        ResizeMode="NoResize">
+    <Grid Margin="15">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        
+        <Label Content="SITE Command:"/>
+        <TextBox x:Name="CommandBox" Width="360" Grid.Row="1" Margin="0,0,0,10" />
+        <Label Content="Button Label (optional):" Grid.Row="2" />
+        
+        <TextBox x:Name="LabelBox" Grid.Row="2" Margin="0,22,0,0" />
+        
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
+            <Button Content="OK" Margin="0,0,10,0" Click="Ok_Click" IsDefault="True"/>
+            <Button Content="Cancel"  Click="Cancel_Click" IsCancel="True"/>
+        </StackPanel>
+    </Grid>
+</local:BaseWindow>

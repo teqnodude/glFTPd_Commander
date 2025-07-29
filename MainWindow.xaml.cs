@@ -1,5 +1,6 @@
 ﻿using FluentFTP;
 using FluentFTP.Exceptions;
+using glFTPd_Commander.Models;
 using glFTPd_Commander.Services;
 using glFTPd_Commander.Utils;
 using glFTPd_Commander.Windows;
@@ -42,6 +43,9 @@ namespace glFTPd_Commander
         protected void OnPropertyChanged(string propertyName) =>
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         private readonly List<string> _commandHistory = new();
+        public ObservableCollection<CustomCommandSlot> CustomCommandSlots { get; } = new();
+        public ICommand CustomCommandSlotClickCommand { get; }
+        public ICommand RemoveCustomCommandCommand { get; }
 
         public class FtpTreeItem : INotifyPropertyChanged
         {
@@ -196,12 +200,20 @@ namespace glFTPd_Commander
             disconnectMenuItem.IsEnabled = false;
             usersGroupsMenuItem.Visibility = Visibility.Collapsed;
             _ = UpdateChecker.CheckForUpdateSilently();
+
+            if (CustomCommandSlots.Count == 0)
+                for (int i = 0; i < 20; i++) CustomCommandSlots.Add(new CustomCommandSlot());
+
+            CustomCommandSlotClickCommand = new RelayCommand<CustomCommandSlot>(OnCustomCommandSlotClicked);
+            RemoveCustomCommandCommand = new RelayCommand<CustomCommandSlot>(OnRemoveCustomCommand);
+            CustomCommandSlotStorage.Load(CustomCommandSlots);
         }
 
         protected override void OnClosed(EventArgs e)
         {
             _ftpClient?.Disconnect();
             _ftpClient?.Dispose();
+            CustomCommandSlotStorage.Save(CustomCommandSlots);
             base.OnClosed(e);
         }
 
@@ -826,6 +838,60 @@ namespace glFTPd_Commander
             MessageBox.Show(reason, "Disconnected", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
+        private async void OnCustomCommandSlotClicked(CustomCommandSlot slot)
+        {
+            if (!slot.IsConfigured)
+            {
+                var dlg = new glFTPd_Commander.Windows.CustomCommandConfigWindow { Owner = this };
+                if (dlg.ShowDialog() == true)
+                {
+                    slot.Command = dlg.SiteCommand;
+                    slot.ButtonText = string.IsNullOrWhiteSpace(dlg.CustomLabel) ? dlg.SiteCommand : dlg.CustomLabel;
+                    Debug.WriteLine($"[CustomCmd] Configured slot with: {slot.Command}");
+                    CustomCommandSlotStorage.Save(CustomCommandSlots);
+                }
+            }
+            else
+            {
+                if (_ftp == null || _ftpClient == null || !_ftpClient.IsConnected)
+                {
+                    MessageBox.Show("You must be connected to an FTP server.", "Not Connected", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                if (string.IsNullOrWhiteSpace(slot.Command))
+                {
+                    MessageBox.Show("No command configured for this slot.", "Command Missing", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+                Debug.WriteLine($"[CustomCmd] Executing: {slot.Command}");
+                CommandOutputTextBox.AppendText($"> {slot.Command}\n");
+                await _ftp.ConnectionLock.WaitAsync();
+                try
+                {
+                    string result = await System.Threading.Tasks.Task.Run(() => _ftp.ExecuteCommand(slot.Command, _ftpClient));
+                    CommandOutputTextBox.AppendText(result + "\n");
+                }
+                catch (Exception ex)
+                {
+                    CommandOutputTextBox.AppendText($"[ERROR] {ex.Message}\n");
+                    Debug.WriteLine($"[CustomCmd] Error: {ex}");
+                }
+                finally
+                {
+                    _ftp.ConnectionLock.Release();
+                    CommandOutputTextBox.ScrollToEnd();
+                }
+            }
+        }
+        
+        private void OnRemoveCustomCommand(CustomCommandSlot slot)
+        {
+            slot.Command = null;
+            slot.ButtonText = "Configure Button";
+            Debug.WriteLine($"[CustomCmd] Removed configuration from slot.");
+            CustomCommandSlotStorage.Save(CustomCommandSlots);
+        }
 
 
     }

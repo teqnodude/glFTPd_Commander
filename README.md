@@ -19,4 +19,4 @@ The requirement is .NET 9 (.NET Desktop Runtime 9) that can be downloaded from h
 <img width="1920" height="1032" alt="Image" src="https://github.com/user-attachments/assets/86ada491-df5f-4eed-b18f-fc18b2d94640" />
 
 ### Custom Commands
-<img width="1920" height="1032" alt="Image" src="https://github.com/user-attachments/assets/bb39eaa8-74ca-4775-b1d6-e496b0f49043" />
+<img width="1920" height="1032" alt="Image" src="https://github.com/user-attachments/assets/892c6686-cdae-4875-9e79-aaedf8d851ad" />
