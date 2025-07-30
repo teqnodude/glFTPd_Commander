@@ -1,5 +1,5 @@
 {
   "version": "1.0.0-rc2",
-  "changelog": "Added automatic version checking.\nFixed siteop flag bug.",
-  "url": "https://github.com/teqnodude/glFTPd_Commander/releases/latest"
+  "changelog": "Bug fixes and improvements",
+  "url": "https://github.com/teqnodude/glFTPd_Commander/releases/download/v1.0.0-rc1/glftpd_commander_v1.0-RC1.zip"
 }
