@@ -199,7 +199,7 @@ namespace glFTPd_Commander
             this.Title = $"glFTPd Commander v{Version} by {Author} - Not connected";
             disconnectMenuItem.IsEnabled = false;
             usersGroupsMenuItem.Visibility = Visibility.Collapsed;
-            _ = UpdateChecker.CheckForUpdateSilently(showMessage: true);
+            _ = UpdateChecker.CheckForUpdateSilently(showMessage: false);
 
             if (CustomCommandSlots.Count == 0)
                 for (int i = 0; i < 20; i++) CustomCommandSlots.Add(new CustomCommandSlot());
