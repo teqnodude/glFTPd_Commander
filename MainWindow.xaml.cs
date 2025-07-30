@@ -1,0 +1,907 @@
+﻿using FluentFTP;
+using FluentFTP.Exceptions;
+using glFTPd_Commander.Models;
+using glFTPd_Commander.Services;
+using glFTPd_Commander.Utils;
+using glFTPd_Commander.Windows;
+using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Reflection;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Input;
+using System.Windows.Threading;
+using static glFTPd_Commander.Services.FTP;
+using Debug = System.Diagnostics.Debug;
+using MessageBox = System.Windows.MessageBox;
+
+namespace glFTPd_Commander
+{
+    public partial class MainWindow : Window, INotifyPropertyChanged
+    {
+        private FTP? _ftp;
+        private FtpClient? _ftpClient;
+        private string? _currentConnectionEncryptedName;
+        public string? CurrentConnectionName => _currentConnectionEncryptedName;
+        private DateTime connectionStartTime;
+        private DispatcherTimer? connectionTimer;
+        private string? baseTitle;
+        private bool _isLoading = false;
+        private bool _popupOpen = false;
+        private HashSet<string> expandedKeys = new HashSet<string>();
+        public bool IsConnected => _ftpClient != null && _ftpClient.IsConnected;
+        public ObservableCollection<FtpTreeItem> RootItems { get; } = new();
+        public static string Version => Assembly.GetExecutingAssembly()
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
+            .InformationalVersion?
+            .Split('+')[0] ?? "Unknown";
+
+        public static string Author => Assembly.GetExecutingAssembly()
+            .GetCustomAttribute<AssemblyCompanyAttribute>()?.Company ?? "Unknown";
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+        protected void OnPropertyChanged(string propertyName) =>
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        private readonly List<string> _commandHistory = new();
+        public ObservableCollection<CustomCommandSlot> CustomCommandSlots { get; } = new();
+        public ICommand CustomCommandSlotClickCommand { get; }
+        public ICommand RemoveCustomCommandCommand { get; }
+
+        public class FtpTreeItem : INotifyPropertyChanged
+        {
+            private string? _name;
+            private bool _isDeletedUser;
+            private bool _isRoot;
+            private bool _isSiteOp;
+            private bool _isGroupAdmin;
+            private bool _isExpanded;
+        
+            public string? Name
+            {
+                get => _name;
+                set
+                {
+                    if (_name != value)
+                    {
+                        _name = value;
+                        OnPropertyChanged(nameof(Name));
+                    }
+                }
+            }
+        
+            public ObservableCollection<FtpTreeItem> Children { get; set; } = new ObservableCollection<FtpTreeItem>();
+        
+            public FtpUser? User { get; set; }
+            public FtpGroup? Group { get; set; }
+        
+            public bool IsUser => User != null && !IsDeletedUser;
+        
+            public bool IsDeletedUser
+            {
+                get => _isDeletedUser;
+                set
+                {
+                    if (_isDeletedUser != value)
+                    {
+                        _isDeletedUser = value;
+                        OnPropertyChanged(nameof(IsDeletedUser));
+                    }
+                }
+            }
+        
+            public bool IsGroup => Group != null;
+        
+            public bool IsRoot
+            {
+                get => _isRoot;
+                set
+                {
+                    if (_isRoot != value)
+                    {
+                        _isRoot = value;
+                        OnPropertyChanged(nameof(IsRoot));
+                    }
+                }
+            }
+        
+            public bool IsSiteOp
+            {
+                get => _isSiteOp;
+                set
+                {
+                    if (_isSiteOp != value)
+                    {
+                        _isSiteOp = value;
+                        OnPropertyChanged(nameof(IsSiteOp));
+                    }
+                }
+            }
+        
+            public bool IsGroupAdmin
+            {
+                get => _isGroupAdmin;
+                set
+                {
+                    if (_isGroupAdmin != value)
+                    {
+                        _isGroupAdmin = value;
+                        OnPropertyChanged(nameof(IsGroupAdmin));
+                    }
+                }
+            }
+        
+            public string? Icon
+            {
+                get
+                {
+                    if (IsRoot) return "pack://application:,,,/Resources/Icons/server.png";
+                    if (IsGroup) return "pack://application:,,,/Resources/Icons/group.png";
+                    if (IsDeletedUser) return "pack://application:,,,/Resources/Icons/deleted.png";
+                    if (IsSiteOp) return "pack://application:,,,/Resources/Icons/siteop.png";
+                    if (IsGroupAdmin) return "pack://application:,,,/Resources/Icons/groupadmin.png";
+                    if (IsUser) return "pack://application:,,,/Resources/Icons/user.png";
+                    return null;
+                }
+            }
+        
+            public bool IsExpanded
+            {
+                get => _isExpanded;
+                set
+                {
+                    if (_isExpanded != value)
+                    {
+                        _isExpanded = value;
+                        OnPropertyChanged(nameof(IsExpanded));
+                    }
+                }
+            }
+        
+            public string UniqueKey
+            {
+                get
+                {
+                    if (IsUser && User != null)
+                        return $"USER:{User.Username.ToLowerInvariant()}";
+                    if (IsDeletedUser && User != null)
+                        return $"DELUSER:{User.Username.ToLowerInvariant()}";
+                    if (IsGroup && Group != null)
+                        return $"GROUP:{Group.Group.ToLowerInvariant()}";
+                    if (IsRoot)
+                        return "ROOT";
+                    // For folder nodes
+                    if (Name != null)
+                    {
+                        if (Name.StartsWith("Active Users"))
+                            return "ACTIVE_USERS_FOLDER";
+                        if (Name.StartsWith("Deleted Users"))
+                            return "DELETED_USERS_FOLDER";
+                        if (Name.StartsWith("Users ("))
+                            return "USERS_ROOT";
+                        if (Name.StartsWith("Groups ("))
+                            return "GROUPS_ROOT";
+                    }
+                    return Name ?? Guid.NewGuid().ToString();
+                }
+            }
+        
+            public event PropertyChangedEventHandler? PropertyChanged;
+            protected void OnPropertyChanged(string propertyName) =>
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+
+
+        public MainWindow()
+        {
+            InitializeComponent();
+            PopulateConnectMenu(); 
+            this.DataContext = this;
+            this.Title = $"glFTPd Commander v{Version} by {Author} - Not connected";
+            disconnectMenuItem.IsEnabled = false;
+            usersGroupsMenuItem.Visibility = Visibility.Collapsed;
+            _ = UpdateChecker.CheckForUpdateSilently(showMessage: true);
+
+            if (CustomCommandSlots.Count == 0)
+                for (int i = 0; i < 20; i++) CustomCommandSlots.Add(new CustomCommandSlot());
+
+            CustomCommandSlotClickCommand = new RelayCommand<CustomCommandSlot>(OnCustomCommandSlotClicked);
+            RemoveCustomCommandCommand = new RelayCommand<CustomCommandSlot>(OnRemoveCustomCommand);
+            CustomCommandSlotStorage.Load(CustomCommandSlots);
+        }
+
+        protected override void OnClosed(EventArgs e)
+        {
+            _ftpClient?.Disconnect();
+            _ftpClient?.Dispose();
+            CustomCommandSlotStorage.Save(CustomCommandSlots);
+            base.OnClosed(e);
+        }
+
+        private async void LoadFtpData()
+        {
+            if (_isLoading) return;
+            _isLoading = true;
+
+            await (_ftp?.ConnectionLock?.WaitAsync() ?? System.Threading.Tasks.Task.CompletedTask);
+
+            try
+            {
+                if (_ftp == null || _ftpClient == null)
+                {
+                    MessageBox.Show("FTP connection is not initialized.", "Error",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+
+                // Synchronous connection check:
+                if (!FTP.EnsureConnected(ref _ftpClient, _ftp))
+                {
+                    MessageBox.Show("Lost connection to the FTP server. Please reconnect.", "Connection Lost",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+
+                var usersTask = System.Threading.Tasks.Task.Run(() => _ftp.GetUsers(_ftpClient));
+                var groupsTask = System.Threading.Tasks.Task.Run(() => _ftp.GetGroups(_ftpClient));
+                var deletedUsersTask = System.Threading.Tasks.Task.Run(() => _ftp.GetDeletedUsers(_ftpClient));
+
+                await System.Threading.Tasks.Task.WhenAll(usersTask, groupsTask, deletedUsersTask);
+
+                var users = usersTask.Result;
+                var groups = groupsTask.Result;
+                var deletedUsers = deletedUsersTask.Result;
+
+                var root = new FtpTreeItem { Name = $"FTP Server: {_ftp.Host}", IsRoot = true };
+
+                // USERS
+                var usersNode = new FtpTreeItem { Name = $"Users ({users.Count + deletedUsers.Count})" };
+
+                var activeUsersNode = new FtpTreeItem { Name = $"Active Users ({users.Count})" };
+                foreach (var user in users.OrderBy(u => u.Username))
+                {
+                    activeUsersNode.Children.Add(new FtpTreeItem
+                    {
+                        Name = user.Username,
+                        User = user
+                    });
+                }
+                usersNode.Children.Add(activeUsersNode);
+
+                var deletedUsersNode = new FtpTreeItem { Name = $"Deleted Users ({deletedUsers.Count})" };
+                foreach (var user in deletedUsers.OrderBy(u => u.Username))
+                {
+                    deletedUsersNode.Children.Add(new FtpTreeItem
+                    {
+                        Name = user.Username,
+                        User = user,
+                        IsDeletedUser = true
+                    });
+                }
+                usersNode.Children.Add(deletedUsersNode);
+                root.Children.Add(usersNode);
+
+                // GROUPS
+                var groupsNode = new FtpTreeItem { Name = $"Groups ({groups.Count})" };
+                foreach (var group in groups.OrderBy(g => g.Group, StringComparer.OrdinalIgnoreCase))
+                {
+                    string label = string.IsNullOrWhiteSpace(group.Description)
+                        ? $"{group.Group} ({group.UserCount})"
+                        : $"{group.Group} - {group.Description} ({group.UserCount})";
+
+                    var groupNode = new FtpTreeItem
+                    {
+                        Name = label,
+                        Group = group
+                    };
+
+                    var groupUsers = await System.Threading.Tasks.Task.Run(() => _ftp.GetUsersInGroup(_ftpClient, group.Group));
+                    foreach (var (userName, isSiteOp, isGroupAdmin) in groupUsers.OrderBy(u => u.Username))
+                    {
+                        groupNode.Children.Add(new FtpTreeItem
+                        {
+                            Name = (isSiteOp ? "*" : isGroupAdmin ? "+" : "") + userName,
+                            User = new FtpUser { Username = userName, Group = group.Group },
+                            IsSiteOp = isSiteOp,
+                            IsGroupAdmin = isGroupAdmin
+                        });
+                    }
+                    groupsNode.Children.Add(groupNode);
+                }
+                root.Children.Add(groupsNode);
+
+                // INCREMENTAL UPDATE:
+                if (RootItems.Count == 0)
+                {
+                    RootItems.Add(root);
+                    // Expand all nodes only on first load
+                    foreach (var item in RootItems)
+                        SetExpandedRecursive(item, true);
+                }
+                else
+                {
+                    // Save expanded state before update
+                    expandedKeys.Clear();
+                    SaveExpandedNodes(RootItems);
+
+                    // Update the tree while preserving structure
+                    UpdateTree(RootItems, new List<FtpTreeItem> { root });
+
+                    // Restore expanded state after update
+                    RestoreExpandedNodes(RootItems);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[MainWindow] Error in LoadFtpData: {ex}");
+                MessageBox.Show($"Error loading FTP data: {ex.Message}", "Error",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                _ftp?.ConnectionLock.Release();
+                _isLoading = false;
+            }
+        }
+
+        private void FtpTreeView_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
+        {
+            if (_popupOpen) return;
+            try
+            {
+                _popupOpen = true;
+
+                if (e.NewValue is FtpTreeItem item)
+                {
+                    if (item.IsUser || item.IsDeletedUser)
+                    {
+                        var userInfoView = new Views.UserInfoView(_ftp!, _ftpClient!, item.User!.Username, GetCurrentLoggedInUsername());
+                        userInfoView.GroupChanged += () => LoadFtpData();
+                        userInfoView.UserDeleted += () => LoadFtpData();
+                        userInfoView.RequestClose += () => UserGroupInfoContent.Content = null;
+                        userInfoView.UserChanged += (username) => LoadFtpDataAndReselectUser(username);
+
+                        UserGroupInfoContent.Content = userInfoView;
+                        RightTabControl.SelectedIndex = 0;
+                    }
+                    else if (item.IsGroup)
+                    {
+                        var groupInfoView = new Views.GroupInfoView(_ftp!, _ftpClient!, item.Group!.Group, GetCurrentLoggedInUsername());
+                        groupInfoView.GroupChanged += () => LoadFtpData();
+                        groupInfoView.RequestClose += () =>
+                        {
+                            UserGroupInfoContent.Content = null;
+                            System.Threading.Tasks.Task.Run(async () =>
+                            {
+                                await System.Threading.Tasks.Task.Delay(500);
+                                Dispatcher.Invoke(() =>
+                                {
+                                    UserGroupInfoContent.Content = null;
+                                    LoadFtpData();
+                                });
+                            });
+                        };
+
+                        UserGroupInfoContent.Content = groupInfoView;
+                        RightTabControl.SelectedIndex = 0;
+                    }
+                }
+            }
+            finally
+            {
+                _popupOpen = false;
+            }
+        }
+
+        private async void LoadFtpDataAndReselectUser(string usernameToSelect)
+        {
+            await Task.Delay(200); // <-- Give UI time to update after reload
+            _ = Dispatcher.InvokeAsync(() =>
+            {
+                var match = FindUserNodeByUsername(RootItems, usernameToSelect);
+                if (match != null)
+                {
+                    ExpandAndSelectTreeViewItem(FtpTreeView, match);
+                }
+            });
+        }
+
+        private FtpTreeItem? FindUserNodeByUsername(IEnumerable<FtpTreeItem> nodes, string username)
+        {
+            foreach (var node in nodes)
+            {
+                if (node.User?.Username.Equals(username, StringComparison.OrdinalIgnoreCase) == true)
+                    return node;
+        
+                var childMatch = FindUserNodeByUsername(node.Children, username);
+                if (childMatch != null)
+                    return childMatch;
+            }
+            return null;
+        }
+
+        private void ExpandAndSelectTreeViewItem(ItemsControl parent, object targetItem)
+        {
+            foreach (object item in parent.Items)
+            {
+                var container = parent.ItemContainerGenerator.ContainerFromItem(item) as TreeViewItem;
+                if (container == null)
+                    continue;
+        
+                if (item == targetItem)
+                {
+                    container.IsSelected = true;
+                    container.BringIntoView();
+                    return;
+                }
+        
+                if (container.Items.Count > 0)
+                {
+                    container.IsExpanded = true; // Ensure children are generated
+                    container.UpdateLayout(); // Important!
+        
+                    ExpandAndSelectTreeViewItem(container, targetItem);
+                }
+            }
+        }
+
+        private string GetCurrentLoggedInUsername()
+        {
+            return _ftp?.Username ?? string.Empty;
+        }
+
+        private void SiteManager_Click(object sender, RoutedEventArgs e)
+        {
+            var settingsWindow = new SettingsWindow { Owner = this };
+            if (settingsWindow.ShowDialog() == true)
+            {
+                _ftpClient?.Disconnect();
+                _ftpClient?.Dispose();
+                _ftpClient = null;
+                PopulateConnectMenu();
+            }
+        }
+
+        private void ConnectionTimer_Tick(object? sender, EventArgs e)
+        {
+            var elapsed = DateTime.Now - connectionStartTime;
+            this.Title = $"{baseTitle} for {elapsed:hh\\:mm\\:ss}";
+        }
+
+        private void Disconnect_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (_ftpClient != null && _ftpClient.IsConnected)
+                {
+                    _ftpClient.Disconnect();
+                    _ftpClient.Dispose();
+                    _ftpClient = null;
+
+                    RootItems.Clear();
+                    UserGroupInfoContent.Content = null;
+
+                    connectionTimer?.Stop();
+                    baseTitle = "glFTPd Commander {version} by Teqno - Not connected";
+                    this.Title = baseTitle;
+                    disconnectMenuItem.IsEnabled = false;
+                    usersGroupsMenuItem.Visibility = Visibility.Collapsed;
+                    OnPropertyChanged(nameof(IsConnected));
+                }
+                else
+                {
+                    MessageBox.Show("Not currently connected to any server", "Disconnect",
+                        MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error disconnecting: {ex.Message}", "Error",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void About_Click(object sender, RoutedEventArgs e)
+        {
+            var aboutWindow = new AboutWindow
+            {
+                Owner = this,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner
+            };
+            aboutWindow.ShowDialog();
+        }
+
+        private void Help_Click(object sender, RoutedEventArgs e)
+        {
+            var helpWindow = new HelpWindow
+            {
+                Owner = this,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner
+            };
+            helpWindow.ShowDialog();
+        }
+
+        private async void userAdd_Click(object sender, RoutedEventArgs e)
+        {
+            var addUserWindow = new AddUserWindow(_ftp!, _ftpClient!)
+            {
+                Owner = this,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner
+            };
+
+            if (addUserWindow.ShowDialog() == true)
+            {
+                string username = addUserWindow.Username;
+                string password = addUserWindow.Password;
+                string group = addUserWindow.SelectedGroup;
+                string ipAddress = addUserWindow.IPAddress;
+
+                if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password) || string.IsNullOrWhiteSpace(group) || string.IsNullOrWhiteSpace(ipAddress))
+                {
+                    MessageBox.Show("Username, password, group and ip are required", "Error",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+
+                try
+                {
+                    if (_ftp == null)
+                    {
+                        MessageBox.Show("FTP connection not initialized.", "Error",
+                                        MessageBoxButton.OK, MessageBoxImage.Error);
+                        return;
+                    }
+                    string result = await System.Threading.Tasks.Task.Run(() => _ftp.AddUser(_ftpClient, username, password, group, ipAddress));
+
+                    LoadFtpData();
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Error adding user: {ex.Message}", "Error",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+        }
+
+        private async void groupAdd_Click(object sender, RoutedEventArgs e)
+        {
+            var addGroupWindow = new AddGroupWindow
+            {
+                Owner = this,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner
+            };
+
+            if (addGroupWindow.ShowDialog() == true)
+            {
+                string group = addGroupWindow.GroupName;
+                string description = addGroupWindow.Description;
+
+                if (string.IsNullOrWhiteSpace(group) || string.IsNullOrWhiteSpace(description))
+                {
+                    MessageBox.Show("Group and Description are required", "Error",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+
+                try
+                {
+                    if (_ftp == null)
+                    {
+                        MessageBox.Show("FTP connection not initialized.", "Error",
+                                        MessageBoxButton.OK, MessageBoxImage.Error);
+                        return;
+                    }
+                    string result = await System.Threading.Tasks.Task.Run(() => _ftp.AddGroup(_ftpClient, group, description));
+
+                    LoadFtpData();
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Error adding group: {ex.Message}", "Error",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+        }
+
+        // Helper: Update observable collection in place (recursive, for trees)
+        private void UpdateTree(ObservableCollection<FtpTreeItem> target, List<FtpTreeItem> source)
+        {
+            // Remove items not in source
+            for (int i = target.Count - 1; i >= 0; i--)
+            {
+                var t = target[i];
+                if (!source.Any(s => s.UniqueKey == t.UniqueKey))
+                    target.RemoveAt(i);
+            }
+        
+            // Add/update items
+            for (int i = 0; i < source.Count; i++)
+            {
+                var s = source[i];
+                var existing = target.FirstOrDefault(t => t.UniqueKey == s.UniqueKey);
+                if (existing == null)
+                {
+                    // New node
+                    target.Insert(i, s);
+                }
+                else
+                {
+                    // Update display properties (Name, etc.)
+                    existing.Name = s.Name;
+                    existing.IsGroupAdmin = s.IsGroupAdmin;
+                    existing.IsSiteOp = s.IsSiteOp;
+                    existing.IsDeletedUser = s.IsDeletedUser;
+                    existing.User = s.User;
+                    existing.Group = s.Group;
+                    // Recursive update on children
+                    UpdateTree(existing.Children, s.Children.ToList());
+                    // Move to correct position if needed
+                    if (target.IndexOf(existing) != i)
+                    {
+                        target.Move(target.IndexOf(existing), i);
+                    }
+                }
+            }
+        }
+        
+        private void SaveExpandedNodes(IEnumerable<FtpTreeItem> nodes)
+        {
+            foreach (var node in nodes)
+            {
+                if (node.IsExpanded)
+                    expandedKeys.Add(node.UniqueKey);
+                SaveExpandedNodes(node.Children);
+            }
+        }
+        
+        private void RestoreExpandedNodes(IEnumerable<FtpTreeItem> nodes)
+        {
+            foreach (var node in nodes)
+            {
+                node.IsExpanded = expandedKeys.Contains(node.UniqueKey);
+                RestoreExpandedNodes(node.Children);
+            }
+        }
+
+        private void ExpandAll_Click(object sender, RoutedEventArgs e)
+        {
+            foreach (var item in RootItems)
+                SetExpandedRecursive(item, true);
+        }
+        
+        private void CollapseAll_Click(object sender, RoutedEventArgs e)
+        {
+            foreach (var item in RootItems)
+                SetExpandedRecursive(item, false);
+        }
+        
+        private void SetExpandedRecursive(FtpTreeItem node, bool expanded)
+        {
+            node.IsExpanded = expanded;
+            foreach (var child in node.Children)
+                SetExpandedRecursive(child, expanded);
+        }
+
+        private async void SendCommandButton_Click(object sender, RoutedEventArgs e)
+        {
+            await ExecuteCustomCommandAsync();
+        }
+        
+        private async void CommandInputComboBox_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter)
+            {
+                await ExecuteCustomCommandAsync();
+                e.Handled = true;
+            }
+        }
+        
+        private async Task ExecuteCustomCommandAsync()
+        {
+            string command = CommandInputComboBox.Text.Trim();
+            if (string.IsNullOrWhiteSpace(command)) return;
+            
+            // Store in history if unique
+            if (!_commandHistory.Contains(command))
+            {
+                _commandHistory.Insert(0, command);
+                if (_commandHistory.Count > 10)
+                    _commandHistory.RemoveAt(0);
+            
+                // Update ComboBox items
+                CommandInputComboBox.ItemsSource = null;
+                CommandInputComboBox.ItemsSource = _commandHistory;
+            }
+            
+            CommandInputComboBox.Text = string.Empty;
+
+            if (_ftp == null || _ftpClient == null || !_ftpClient.IsConnected)
+            {
+                MessageBox.Show("You must be connected to an FTP server.", "Not Connected",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+        
+            CommandOutputTextBox.AppendText($"> {command}\n");
+
+            await _ftp.ConnectionLock.WaitAsync();
+            try
+            {
+                string result = await Task.Run(() => _ftp.ExecuteCommand(command, _ftpClient));
+                CommandOutputTextBox.AppendText(result + "\n");
+                //Debug.WriteLine($"[CustomCommand] Executed: {command} → {result}");
+            }
+            catch (Exception ex)
+            {
+                CommandOutputTextBox.AppendText($"[ERROR] {ex.Message}\n");
+                Debug.WriteLine($"[CustomCommand] Error: {ex}");
+            }
+            finally
+            {
+                _ftp.ConnectionLock.Release();
+                CommandInputComboBox.Text = string.Empty;
+                CommandOutputTextBox.ScrollToEnd();
+            }
+        }
+
+        public void PopulateConnectMenu()
+        {
+            connectMenuItem.Items.Clear();
+        
+            var connections = FTP.GetAllConnections();
+            if (connections.Count == 0)
+            {
+                connectMenuItem.Items.Add(new MenuItem
+                {
+                    Header = "(No connections found)",
+                    IsEnabled = false
+                });
+                return;
+            }
+        
+            foreach (var conn in connections)
+            {
+                string decryptedName = FTP.TryDecryptString(conn["Name"]) ?? conn["Name"];
+                var item = new MenuItem
+                {
+                    Header = decryptedName,
+                    Tag = conn["Name"]
+                };
+                item.Click += ConnectToSelectedConnection_Click;
+                connectMenuItem.Items.Add(item);
+            }
+        }
+
+        private void ConnectToSelectedConnection_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is MenuItem menuItem && menuItem.Tag is string encryptedConnectionName)
+            {
+                AttemptConnection(encryptedConnectionName);
+            }
+        }
+
+        private void AttemptConnection(string encryptedConnectionName)
+        {
+            try
+            {
+                UserGroupInfoContent.Content = null;
+                _ftpClient?.Disconnect();
+                _ftpClient?.Dispose();
+                _ftpClient = null;
+                FTP.ClearSessionCaches();
+        
+                _ftp = new FTP();
+                _ftp.LoadSettings(encryptedConnectionName);
+        
+                if (string.IsNullOrWhiteSpace(_ftp.Host) ||
+                    string.IsNullOrWhiteSpace(_ftp.Username) ||
+                    string.IsNullOrWhiteSpace(_ftp.Password))
+                {
+                    MessageBox.Show("Selected connection has incomplete settings", "Connection Error",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+        
+                _ftpClient = _ftp.CreateClient();
+                _ftpClient.Connect();
+                LoadFtpData();
+        
+                var decryptedName = FTP.TryDecryptString(encryptedConnectionName) ?? encryptedConnectionName;
+                baseTitle = $"glFTPd Commander v{Version} by {Author} - Connected to {decryptedName}";
+                this.Title = baseTitle;
+                disconnectMenuItem.IsEnabled = true;
+                usersGroupsMenuItem.Visibility = Visibility.Visible;
+                _currentConnectionEncryptedName = encryptedConnectionName;
+                OnPropertyChanged(nameof(IsConnected));
+                connectionStartTime = DateTime.Now;
+        
+                connectionTimer ??= new DispatcherTimer
+                {
+                    Interval = TimeSpan.FromSeconds(1)
+                };
+                connectionTimer.Tick += ConnectionTimer_Tick;
+                connectionTimer.Start();
+
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error: {ex.Message}", "Connection Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        public void ForceDisconnect(string reason)
+        {
+            _ftpClient?.Disconnect();
+            _ftpClient?.Dispose();
+            _ftpClient = null;
+            _ftp = null;
+            RootItems.Clear();
+            UserGroupInfoContent.Content = null;
+        
+            connectionTimer?.Stop();
+            this.Title = $"glFTPd Commander v{Version} by {Author} - Not connected";
+            disconnectMenuItem.IsEnabled = false;
+            usersGroupsMenuItem.Visibility = Visibility.Collapsed;
+            _currentConnectionEncryptedName = null;
+            OnPropertyChanged(nameof(IsConnected));
+        
+            MessageBox.Show(reason, "Disconnected", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
+        private async void OnCustomCommandSlotClicked(CustomCommandSlot slot)
+        {
+            if (!slot.IsConfigured)
+            {
+                var dlg = new glFTPd_Commander.Windows.CustomCommandConfigWindow { Owner = this };
+                if (dlg.ShowDialog() == true)
+                {
+                    slot.Command = dlg.SiteCommand;
+                    slot.ButtonText = string.IsNullOrWhiteSpace(dlg.CustomLabel) ? dlg.SiteCommand : dlg.CustomLabel;
+                    Debug.WriteLine($"[CustomCmd] Configured slot with: {slot.Command}");
+                    CustomCommandSlotStorage.Save(CustomCommandSlots);
+                }
+            }
+            else
+            {
+                if (_ftp == null || _ftpClient == null || !_ftpClient.IsConnected)
+                {
+                    MessageBox.Show("You must be connected to an FTP server.", "Not Connected", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                if (string.IsNullOrWhiteSpace(slot.Command))
+                {
+                    MessageBox.Show("No command configured for this slot.", "Command Missing", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+                Debug.WriteLine($"[CustomCmd] Executing: {slot.Command}");
+                CommandOutputTextBox.AppendText($"> {slot.Command}\n");
+                await _ftp.ConnectionLock.WaitAsync();
+                try
+                {
+                    string result = await System.Threading.Tasks.Task.Run(() => _ftp.ExecuteCommand(slot.Command, _ftpClient));
+                    CommandOutputTextBox.AppendText(result + "\n");
+                }
+                catch (Exception ex)
+                {
+                    CommandOutputTextBox.AppendText($"[ERROR] {ex.Message}\n");
+                    Debug.WriteLine($"[CustomCmd] Error: {ex}");
+                }
+                finally
+                {
+                    _ftp.ConnectionLock.Release();
+                    CommandOutputTextBox.ScrollToEnd();
+                }
+            }
+        }
+        
+        private void OnRemoveCustomCommand(CustomCommandSlot slot)
+        {
+            slot.Command = null;
+            slot.ButtonText = "Configure Button";
+            Debug.WriteLine($"[CustomCmd] Removed configuration from slot.");
+            CustomCommandSlotStorage.Save(CustomCommandSlots);
+        }
+
+
+    }
+}

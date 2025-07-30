@@ -1,0 +1,51 @@
+﻿<local:BaseWindow x:Class="glFTPd_Commander.Windows.AddUserWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:glFTPd_Commander.Windows"
+        Title="Add New User" 
+        SizeToContent="WidthAndHeight"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner">
+    <Grid Margin="15">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Username -->
+        <Label Content="Username:" Width="300" Grid.Row="0"/>
+        <TextBox x:Name="txtNewUsername" Margin="0,0,0,10" Grid.Row="1"/>
+
+        <!-- Password -->
+        <Label Content="Password:" Grid.Row="2"/>
+        <Grid Grid.Row="3" Margin="0,0,0,10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <PasswordBox x:Name="txtNewPassword" Grid.Column="0"/>
+            <TextBox x:Name="txtPasswordVisible" Visibility="Collapsed" Grid.Column="0"/>
+        </Grid>
+
+        <!-- Group -->
+        <Label Content="Group:" Grid.Row="4"/>
+        <ComboBox x:Name="cmbGroups" Margin="0,0,0,10" SelectionChanged="CmbGroups_SelectionChanged" Grid.Row="5" />
+
+        <!-- IP Address -->
+        <Label Content="IP Address:" Grid.Row="6"/>
+        <TextBox x:Name="txtIP" Margin="0,0,0,10" TextChanged="InputField_TextChanged" Grid.Row="7"/>
+
+        <!-- Buttons -->
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Grid.Row="8">
+            <Button x:Name="btnAdd" Content="Add" Margin="0,0,10,0" Click="BtnAdd_Click" IsDefault="True" IsEnabled="False"/>
+            <Button x:Name="btnCancel" Content="Cancel" Click="BtnCancel_Click" IsCancel="True"/>
+        </StackPanel>
+    </Grid>
+</local:BaseWindow>

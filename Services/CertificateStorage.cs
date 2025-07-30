@@ -1,0 +1,311 @@
+﻿using System.IO;
+using System.Security.Cryptography;
+using System.Text.Json;
+
+namespace glFTPd_Commander.Services
+{
+    public static class CertificateStorage
+    {
+        private static readonly object fileLock = new object();
+        private static Dictionary<string, Dictionary<string, string>> _certificates = new Dictionary<string, Dictionary<string, string>>();
+        
+        static CertificateStorage()
+        {
+            LoadCertificates();
+        }
+        
+        private static string GetCertificatesFilePath()
+        {
+            return "accepted_certs.json";
+        }
+        
+        private static void LoadCertificates()
+        {
+            lock (fileLock)
+            {
+                try
+                {
+                    if (!File.Exists(GetCertificatesFilePath()))
+                    {
+                        _certificates = new Dictionary<string, Dictionary<string, string>>();
+                        return;
+                    }
+                    
+                    string json = File.ReadAllText(GetCertificatesFilePath());
+                    if (!string.IsNullOrWhiteSpace(json) && json != "{}")
+                    {
+                        var loadedCerts = JsonSerializer.Deserialize<Dictionary<string, Dictionary<string, string>>>(json) 
+                                        ?? new Dictionary<string, Dictionary<string, string>>();
+                        
+                        // Migrate any unencrypted connection names to encrypted format
+                        _certificates = new Dictionary<string, Dictionary<string, string>>();
+                        foreach (var pair in loadedCerts)
+                        {
+                            string encryptedKey;
+                            try
+                            {
+                                // If the key can be decrypted, it was already encrypted
+                                var decrypted = DecryptString(pair.Key);
+                                encryptedKey = pair.Key; // Keep the encrypted version
+                            }
+                            catch
+                            {
+                                // If decryption fails, this was an unencrypted key - encrypt it
+                                encryptedKey = EncryptString(pair.Key);
+                            }
+                            
+                            _certificates[encryptedKey] = pair.Value;
+                        }
+                    }
+                    else
+                    {
+                        _certificates = new Dictionary<string, Dictionary<string, string>>();
+                    }
+                }
+                catch
+                {
+                    _certificates = new Dictionary<string, Dictionary<string, string>>();
+                }
+            }
+        }
+        
+        public static bool IsCertificateApproved(string thumbprint, string? connectionName = null)
+        {
+            lock (fileLock)
+            {
+                // Encrypt the connection name for lookup
+                var encryptedConnectionName = string.IsNullOrEmpty(connectionName) 
+                    ? "" 
+                    : EncryptString(connectionName);
+        
+                // Check connection-specific first
+                if (!string.IsNullOrEmpty(encryptedConnectionName) 
+                    && _certificates.TryGetValue(encryptedConnectionName, out var connCerts))
+                {
+                    foreach (var encryptedThumbprint in connCerts.Keys)
+                    {
+                        var decryptedThumbprint = TryDecryptString(encryptedThumbprint);
+                        if (decryptedThumbprint == thumbprint)
+                            return true;
+                    }
+                }
+                
+                // Check global certificates
+                if (_certificates.TryGetValue("", out var globalCerts))
+                {
+                    foreach (var encryptedThumbprint in globalCerts.Keys)
+                    {
+                        var decryptedThumbprint = TryDecryptString(encryptedThumbprint);
+                        if (decryptedThumbprint == thumbprint)
+                            return true;
+                    }
+                }
+                
+                return false;
+            }
+        }
+        
+        public static void ApproveCertificate(string thumbprint, string subject, bool remember, string? connectionName = null)
+        {
+            if (!remember) return;
+        
+            lock (fileLock)
+            {
+                // Encrypt the connection name if provided
+                var encryptedConnectionName = string.IsNullOrEmpty(connectionName) 
+                    ? "" 
+                    : EncryptString(connectionName);
+                
+                if (!_certificates.ContainsKey(encryptedConnectionName))
+                {
+                    _certificates[encryptedConnectionName] = new Dictionary<string, string>();
+                }
+                
+                // Encrypt both thumbprint and subject
+                var encryptedThumbprint = EncryptString(thumbprint);
+                var encryptedSubject = EncryptString(subject);
+                
+                _certificates[encryptedConnectionName][encryptedThumbprint] = encryptedSubject;
+        
+                var options = new JsonSerializerOptions { WriteIndented = true };
+                File.WriteAllText(GetCertificatesFilePath(), 
+                    JsonSerializer.Serialize(_certificates, options));
+            }
+        }
+
+        public static string? GetCertificateSubject(string thumbprint, string? connectionName = null)
+        {
+            lock (fileLock)
+            {
+                // Encrypt the connection name for lookup
+                var encryptedConnectionName = string.IsNullOrEmpty(connectionName) 
+                    ? "" 
+                    : EncryptString(connectionName);
+        
+                // Check connection-specific first
+                if (!string.IsNullOrEmpty(encryptedConnectionName) 
+                    && _certificates.TryGetValue(encryptedConnectionName, out var connCerts))
+                {
+                    foreach (var pair in connCerts)
+                    {
+                        var decryptedThumbprint = TryDecryptString(pair.Key);
+                        if (decryptedThumbprint == thumbprint)
+                        {
+                            return TryDecryptString(pair.Value);
+                        }
+                    }
+                }
+                
+                // Check global certificates
+                if (_certificates.TryGetValue("", out var globalCerts))
+                {
+                    foreach (var pair in globalCerts)
+                    {
+                        var decryptedThumbprint = TryDecryptString(pair.Key);
+                        if (decryptedThumbprint == thumbprint)
+                        {
+                            return TryDecryptString(pair.Value);
+                        }
+                    }
+                }
+                
+                return null;
+            }
+        }
+
+        private static string? TryDecryptString(string cipherText)
+        {
+            if (string.IsNullOrWhiteSpace(cipherText))
+                return cipherText;
+
+            try
+            {
+                return DecryptString(cipherText);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static string EncryptString(string plainText)
+        {
+            if (string.IsNullOrEmpty(plainText))
+                return plainText;
+        
+            try
+            {
+                using var aes = Aes.Create();
+                aes.Key = EncryptionKeyManager.Key;
+                aes.IV = EncryptionKeyManager.IV;
+        
+                using var encryptor = aes.CreateEncryptor(aes.Key, aes.IV);
+                using var ms = new MemoryStream();
+                using (var cs = new CryptoStream(ms, encryptor, CryptoStreamMode.Write))
+                using (var sw = new StreamWriter(cs))
+                    sw.Write(plainText);
+                
+                return Convert.ToBase64String(ms.ToArray());
+            }
+            catch
+            {
+                return plainText; // Return original if encryption fails
+            }
+        }
+
+
+        private static string DecryptString(string cipherText)
+        {
+            if (string.IsNullOrWhiteSpace(cipherText))
+                return string.Empty;
+        
+            try
+            {
+                var buffer = Convert.FromBase64String(cipherText);
+                using var aes = Aes.Create();
+                aes.Key = EncryptionKeyManager.Key;
+                aes.IV = EncryptionKeyManager.IV;
+        
+                using var decryptor = aes.CreateDecryptor(aes.Key, aes.IV);
+                using var ms = new MemoryStream(buffer);
+                using var cs = new CryptoStream(ms, decryptor, CryptoStreamMode.Read);
+                using var sr = new StreamReader(cs);
+                return sr.ReadToEnd();
+            }
+            catch
+            {
+                return string.Empty;
+            }
+        }
+    }
+
+    public static class EncryptionKeyManager
+    {
+        private const string KeyFilePath = "keyinfo.dat";
+        private static readonly object _lock = new object();
+        public static byte[] Key { get; private set; } = Array.Empty<byte>();
+        public static byte[] IV { get; private set; } = Array.Empty<byte>();
+
+        public static void Initialize()
+        {
+            lock (_lock)
+            {
+                try
+                {
+                    if (File.Exists(KeyFilePath))
+                        LoadKeys();
+                    else
+                        GenerateAndStoreKeys();
+                }
+                catch
+                {
+                    GenerateAndStoreKeys();
+                }
+            }
+        }
+
+        private static void GenerateAndStoreKeys()
+        {
+            using var aes = Aes.Create();
+            aes.KeySize = 256;
+            aes.GenerateKey();
+            aes.GenerateIV();
+
+            Key = aes.Key;
+            IV = aes.IV;
+
+            try
+            {
+                var dir = Path.GetDirectoryName(KeyFilePath);
+                if (!string.IsNullOrEmpty(dir))
+                    Directory.CreateDirectory(dir);
+                using var fs = new FileStream(KeyFilePath, FileMode.Create);
+                fs.Write(Key, 0, Key.Length);
+                fs.Write(IV, 0, IV.Length);
+                File.SetAttributes(KeyFilePath, File.GetAttributes(KeyFilePath) | FileAttributes.Hidden);
+            }
+            catch
+            {
+                throw;
+            }
+        }
+
+        private static void LoadKeys()
+        {
+            try
+            {
+                using var fs = new FileStream(KeyFilePath, FileMode.Open);
+                Key = new byte[32];
+                IV = new byte[16];
+                
+                if (fs.Read(Key, 0, Key.Length) != Key.Length || 
+                    fs.Read(IV, 0, IV.Length) != IV.Length)
+                    throw new InvalidOperationException("Invalid key file format");
+            }
+            catch
+            {
+                GenerateAndStoreKeys();
+            }
+        }
+    }
+}

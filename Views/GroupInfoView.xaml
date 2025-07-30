@@ -1,0 +1,97 @@
+﻿<UserControl x:Class="glFTPd_Commander.Views.GroupInfoView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DesignHeight="700" d:DesignWidth="1130">
+    
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <Grid Margin="20">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <Label Content="Group Information" 
+                       FontSize="16" 
+                       FontWeight="Bold" 
+                       Margin="0 0 0 10"
+                       HorizontalAlignment="Center"/>
+
+            <Grid Grid.Row="1" Margin="0 10 0 0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="250" />
+                    <ColumnDefinition Width="250" />
+                    <ColumnDefinition Width="2*" />
+                </Grid.ColumnDefinitions>
+
+                <!-- LEFT COLUMN -->
+                <StackPanel Grid.Column="0" Margin="0 0 10 0">
+                    <Label Content="Group Name:"/>
+                    <TextBox x:Name="GroupNameTextBox" LostFocus="GroupNameTextBox_LostFocus" Margin="0,0,0,10"/>
+
+                    <Label Content="Description:"/>
+                    <TextBox x:Name="DescriptionTextBox" LostFocus="DescriptionTextBox_LostFocus" Margin="0,0,0,10"/>
+
+                    <Label Content="Slots:"/>
+                    <TextBox x:Name="SlotsTextBox" ToolTip="-1 = Unlimited" LostFocus="SlotsTextBox_LostFocus" Margin="0,0,0,10"/>
+
+                    <Label Content="Leech:"/>
+                    <TextBox x:Name="LeechTextBox" ToolTip="-1 = Unlimited, -2 = Disabled" LostFocus="LeechTextBox_LostFocus" Margin="0,0,0,10"/>
+
+					<Button x:Name="groupRemoveButton"
+								Content="Remove Group"
+								Click="groupRemoveButton_Click"
+								Background="DarkRed"
+								Foreground="White"/>
+                </StackPanel>
+
+                <!-- MIDDLE COLUMN -->
+                <StackPanel Grid.Column="1" Margin="0 0 10 0">
+                    <Label Content="Allot:"/>
+                    <TextBox x:Name="AllotTextBox" ToolTip="-1 = Unlimited, -2 = Disabled" LostFocus="AllotTextBox_LostFocus" Margin="0,0,0,10"/>
+
+                    <Label Content="Max Allot:"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                        <TextBox x:Name="MaxAllotTextBox" Width="180" IsReadOnly="True" ToolTip="0 = Unlimited" Margin="0,0,10,0"/>
+                        <Button Content="Set" Width="50" Click="SetMaxAllotButton_Click"/>
+                    </StackPanel>
+
+                    <Label Content="Max Logins:"/>
+                    <TextBox x:Name="MaxLoginsTextBox" ToolTip="0 = Unlimited" LostFocus="MaxLoginsTextBox_LostFocus" Margin="0,0,0,10"/>
+
+                    <Label Content="Comment:"/>
+                    <TextBox x:Name="CommentTextBox" ToolTip="Max 63 symbols" LostFocus="CommentTextBox_LostFocus" Margin="0,0,0,10"/>
+                </StackPanel>
+
+                <!-- RIGHT COLUMN: Available Users & Group Admin Management -->
+                <Grid Grid.Column="2" Margin="0,0,0,0" Height="250" VerticalAlignment="Top">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Available Users -->
+                    <StackPanel Grid.Column="0">
+                        <Label Content="Available Users:" />
+                        <ListBox x:Name="AvailableUsersComboBox" Width="250" Height="250" SelectionMode="Extended"/>
+                    </StackPanel>
+
+                    <!-- Buttons -->
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="10 0">
+                        <Button Content="Add →" Width="100" Margin="0,0,0,10" Click="AddButton_Click"/>
+                        <Button Content="← Remove" Width="100" Click="RemoveButton_Click"/>
+                    </StackPanel>
+
+                    <!-- Group Admin -->
+                    <StackPanel Grid.Column="2">
+                        <Label Content="Group Admin:" />
+                        <ListBox x:Name="GroupAdminComboBox" Width="250" Height="250" SelectionMode="Extended"/>
+                    </StackPanel>
+				</Grid>
+            </Grid>
+        </Grid>
+    </ScrollViewer>
+</UserControl>

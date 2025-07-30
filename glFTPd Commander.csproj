@@ -1,0 +1,61 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net9.0-windows</TargetFramework>
+	<UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <ApplicationIcon>Resources\Icons\logo.ico</ApplicationIcon>
+	<EnableSupportedPlatformCheck>False</EnableSupportedPlatformCheck>
+	<EnablePreviewFeatures>true</EnablePreviewFeatures>
+    <NoWarn>$(NoWarn);WPF0001</NoWarn>
+	<Product>glFTPd Commander</Product>
+	<Version>1.0.0-rc2</Version>
+	<Company>teqnodude</Company>
+	<Authors>teqnodude</Authors>
+	<Description>FTP management of users and groups</Description>
+	<PackageReadmeFile></PackageReadmeFile>
+	<PackageProjectUrl></PackageProjectUrl>
+	<PackageIcon></PackageIcon>
+</PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="App.config" />
+    <None Remove="Resources\Icons\deleted.png" />
+    <None Remove="Resources\Icons\group.png" />
+    <None Remove="Resources\Icons\groupadmin.png" />
+    <None Remove="Resources\Icons\logo.ico" />
+    <None Remove="Resources\Icons\server.png" />
+    <None Remove="Resources\Icons\siteop.png" />
+    <None Remove="Resources\Icons\user.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FluentFTP" Version="53.0.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="App.config" />
+    <Resource Include="Resources\Icons\deleted.png" />
+    <Resource Include="Resources\Icons\group.png" />
+    <Resource Include="Resources\Icons\groupadmin.png" />
+    <Resource Include="Resources\Icons\logo.ico" />
+    <Resource Include="Resources\Icons\server.png" />
+    <Resource Include="Resources\Icons\siteop.png" />
+    <Resource Include="Resources\Icons\user.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="LICENSE.txt">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+    <None Update="README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,37 @@
+<local:BaseWindow x:Class="glFTPd_Commander.Windows.AboutWindow"
+                  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                  xmlns:local="clr-namespace:glFTPd_Commander.Windows"
+                  Title="About"
+                  SizeToContent="WidthAndHeight"
+                  WindowStartupLocation="CenterOwner"
+                  ResizeMode="NoResize">
+    <Grid Margin="20">
+        <StackPanel>
+            <TextBlock Text="glFTPd Commander" FontWeight="Bold" FontSize="16" Margin="0,0,0,10"/>
+            <TextBlock Text="Version: 1.0.0-rc2" Margin="0,0,0,10"/>
+            <TextBlock Text="Author: teqnodude" Margin="0,0,0,10"/>
+            <TextBlock Text="Project URL:" FontWeight="Bold"/>
+            <TextBlock>
+                <Hyperlink NavigateUri="https://github.com/teqnodude/glFTPd_Commander"
+                           RequestNavigate="Hyperlink_RequestNavigate">
+                    https://github.com/teqnodude/glFTPd_Commander
+                </Hyperlink>
+            </TextBlock>
+            <StackPanel Orientation="Horizontal" Margin="0,10,0,0" VerticalAlignment="Center">
+                <TextBlock x:Name="UpdateStatusText"
+                       FontStyle="Italic"
+                       Foreground="Gray"
+                       Text="Checking for updates..."
+                       VerticalAlignment="Center"
+                       Visibility="Collapsed"/>
+                <Button x:Name="UpdateButton"
+                    Content="Update"
+                    Visibility="Collapsed"
+                    Margin="10,0,0,0"
+                    Click="UpdateButton_Click"
+                    VerticalAlignment="Center"/>
+            </StackPanel>
+        </StackPanel>
+    </Grid>
+</local:BaseWindow>
