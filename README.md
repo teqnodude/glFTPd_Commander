@@ -5,6 +5,8 @@ The purpose behind this project is to create the ultimate glFTPd tool to manage 
 
 The requirement is .NET 9 (.NET Desktop Runtime 9) that can be downloaded from https://dotnet.microsoft.com/en-us/download/dotnet/9.0
 
+It comes with a built-in update checker that triggers a background update program if a new version is found and the user wants it. The background update program is included in the releases where the source code for the background update program can be found here: https://github.com/teqnodude/glFTPd_Commander-Updater.
+
 ## Screenshots
 ### Main
 <img width="1920" height="1032" alt="Image" src="https://github.com/user-attachments/assets/41531c92-aae5-4e3c-85c2-1b7fc1e51ce7" />
