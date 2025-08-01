@@ -7,6 +7,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Navigation;
 using static glFTPd_Commander.Utils.UpdateChecker;
+using Debug = System.Diagnostics.Debug;
 
 namespace glFTPd_Commander.Windows
 {
@@ -28,6 +29,8 @@ namespace glFTPd_Commander.Windows
 
         private async void AboutWindow_Loaded(object sender, RoutedEventArgs e)
         {
+            UpdateButton.Visibility = Visibility.Collapsed; // Always start hidden
+        
             UpdateStatusText.Visibility = Visibility.Visible;
             UpdateStatusText.Text = "Checking for updates...";
             UpdateStatusText.Foreground = new SolidColorBrush(Colors.Gray);
@@ -44,16 +47,28 @@ namespace glFTPd_Commander.Windows
                 case UpdateChecker.UpdateCheckResult.UpdateAvailable:
                     UpdateStatusText.Text = "A new version is available.";
                     UpdateStatusText.Foreground = new SolidColorBrush(Colors.Red);
-                    // Fetch version info again to get the update URL
-                    var versionInfo = await GetLatestVersionInfo();
-                    if (!string.IsNullOrEmpty(versionInfo?.Url))
+                    var versionInfo = await UpdateChecker.GetLatestVersionInfo();
+                    // Defensive: handle both Url and url for dynamic results
+                    string? url = null;
+                    if (versionInfo != null)
                     {
-                        _updateUrl = versionInfo?.Url;
-                        UpdateButton.Visibility = Visibility.Visible;
+                        url = versionInfo.Url ?? versionInfo.url;
+                    }
+
+                    if (!string.IsNullOrEmpty(url))
+                    {
+                        _updateUrl = url;
+                        Application.Current.Dispatcher.Invoke(() =>
+                        {
+                            UpdateButton.Visibility = Visibility.Visible;
+                        });
                     }
                     else
                     {
-                        UpdateButton.Visibility = Visibility.Collapsed;
+                        Application.Current.Dispatcher.Invoke(() =>
+                        {
+                            UpdateButton.Visibility = Visibility.Collapsed;
+                        });
                     }
                     break;
         
@@ -66,31 +81,6 @@ namespace glFTPd_Commander.Windows
                     UpdateStatusText.Text = "Unknown update result.";
                     UpdateStatusText.Foreground = new SolidColorBrush(Colors.Red);
                     break;
-            }
-        }
-
-        private async Task<dynamic?> GetLatestVersionInfo()
-        {
-            try
-            {
-                using var client = new HttpClient();
-                string jsonUrl = "https://raw.githubusercontent.com/teqnodude/glFTPd_Commander/master/version.json";
-                string json = await client.GetStringAsync(jsonUrl);
-        
-                // You can use JsonDocument or dynamic parsing, for simplicity:
-                var doc = System.Text.Json.JsonDocument.Parse(json);
-                var root = doc.RootElement;
-        
-                return new
-                {
-                    Version = root.GetProperty("version").GetString(),
-                    Changelog = root.GetProperty("changelog").GetString(),
-                    Url = root.GetProperty("url").GetString()
-                };
-            }
-            catch
-            {
-                return null;
             }
         }
 

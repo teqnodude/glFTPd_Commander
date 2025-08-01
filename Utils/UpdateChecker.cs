@@ -36,16 +36,16 @@ namespace glFTPd_Commander.Utils
             try
             {
                 using var client = new HttpClient();
-                string jsonUrl = "https://raw.githubusercontent.com/teqnodude/glFTPd_Commander/master/version.json";
+                string jsonUrl = "https://raw.githubusercontent.com/teqnodude/glFTPd_Commander/master/version-test.json";
                 string json = await client.GetStringAsync(jsonUrl);
                 var versionInfo = JsonSerializer.Deserialize<VersionInfo>(json);
                 if (versionInfo == null)
                     return UpdateCheckResult.Error;
 
                 int cmp = CompareSemVer(MainWindow.Version, versionInfo.Version);
-                Debug.WriteLine($"[UpdateCheck] App Version = '{MainWindow.Version}'");
+                /*Debug.WriteLine($"[UpdateCheck] App Version = '{MainWindow.Version}'");
                 Debug.WriteLine($"[UpdateCheck] Remote Version = '{versionInfo.Version}'");
-                Debug.WriteLine($"[UpdateCheck] SemVer Compare = {CompareSemVer(MainWindow.Version, versionInfo.Version)}");
+                Debug.WriteLine($"[UpdateCheck] SemVer Compare = {CompareSemVer(MainWindow.Version, versionInfo.Version)}");*/
 
                 if (cmp < 0)
                 {
@@ -189,6 +189,79 @@ namespace glFTPd_Commander.Utils
             catch (Exception ex)
             {
                 MessageBox.Show($"Update failed:\n{ex.Message}", "Update Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+
+        public static async Task CheckAndPromptForUpdate()
+        {
+            var result = await CheckForUpdateSilently(showMessage: false);
+            System.Diagnostics.Debug.WriteLine($"[UpdateChecker] CheckAndPromptForUpdate result: {result}");
+        
+            if (result == UpdateCheckResult.UpdateAvailable)
+            {
+                // UI code (MessageBox) must be run on UI thread, async logic outside
+                MessageBoxResult dialogResult = MessageBoxResult.No;
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    dialogResult = MessageBox.Show(
+                        "A new version is available! Do you want to download and update now?",
+                        "Update Available",
+                        MessageBoxButton.YesNo,
+                        MessageBoxImage.Information);
+                });
+        
+                if (dialogResult == MessageBoxResult.Yes)
+                {
+                    // Async download logic outside Dispatcher!
+                    var versionInfo = await GetLatestVersionInfo();
+                    string? url = null;
+                    if (versionInfo != null)
+                    {
+                        // Defensive: try both Url and url
+                        url = (versionInfo.Url as string) ?? (versionInfo.url as string) ?? null;
+                    }
+                    if (!string.IsNullOrWhiteSpace(url))
+                    {
+                        await DownloadAndApplyUpdate(url);
+                    }
+                    else
+                    {
+                        Application.Current.Dispatcher.Invoke(() =>
+                        {
+                            MessageBox.Show(
+                                "Could not retrieve the update URL.",
+                                "Update Error",
+                                MessageBoxButton.OK,
+                                MessageBoxImage.Error
+                            );
+                        });
+                    }
+                }
+            }
+        }
+        
+        public static async Task<dynamic?> GetLatestVersionInfo()
+        {
+            try
+            {
+                using var client = new HttpClient();
+                string jsonUrl = "https://raw.githubusercontent.com/teqnodude/glFTPd_Commander/master/version-test.json";
+                string json = await client.GetStringAsync(jsonUrl);
+                var doc = System.Text.Json.JsonDocument.Parse(json);
+                var root = doc.RootElement;
+        
+                return new
+                {
+                    Version = root.TryGetProperty("version", out var verProp) ? verProp.GetString() : null,
+                    Changelog = root.TryGetProperty("changelog", out var chProp) ? chProp.GetString() : null,
+                    Url = root.TryGetProperty("url", out var urlProp) ? urlProp.GetString() : null
+                };
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[UpdateChecker] GetLatestVersionInfo failed: {ex}");
+                return null;
             }
         }
 

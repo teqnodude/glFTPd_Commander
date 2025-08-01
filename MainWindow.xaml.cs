@@ -201,7 +201,7 @@ namespace glFTPd_Commander
             this.Title = $"glFTPd Commander v{Version} by {Author} - Not connected";
             disconnectMenuItem.IsEnabled = false;
             usersGroupsMenuItem.Visibility = Visibility.Collapsed;
-            _ = UpdateChecker.CheckForUpdateSilently(showMessage: false);
+            Loaded += async (s, e) => await glFTPd_Commander.Utils.UpdateChecker.CheckAndPromptForUpdate();
 
             // Load slots from SettingsManager (keep your ObservableCollection as UI source)
             CustomCommandSlotClickCommand = new RelayCommand<CustomCommandSlot>(OnCustomCommandSlotClicked);
