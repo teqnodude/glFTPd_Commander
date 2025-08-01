@@ -3,15 +3,14 @@ using glFTPd_Commander.Services;
 using glFTPd_Commander.Windows;
 using System.Text.RegularExpressions;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
-using MessageBox = System.Windows.MessageBox;
-using TextBox = System.Windows.Controls.TextBox;
-using UserControl = System.Windows.Controls.UserControl;
+
 using Debug = System.Diagnostics.Debug;
 
 namespace glFTPd_Commander.Views
 {
-    public partial class UserInfoView : UserControl, IUnselectable
+    public partial class UserInfoView : BaseUserControl, IUnselectable
     {
         private FTP? _ftp;
         private FtpClient? _ftpClient;
@@ -201,11 +200,7 @@ namespace glFTPd_Commander.Views
                 ["Weekly Allotment"] = (weeklyAllotmentText, v => { }),
                 ["Time Limit"] = (timeLimitText, v => _oldTimeLimit = v),
                 ["Timeframe"] = (timeframeText, v => _oldTimeframe = v),
-                ["Tagline"] = (taglineText, v =>
-                {
-                    string cleaned = v.Replace("\"", "").Trim();
-                    _oldTagline = cleaned;
-                })
+                ["Tagline"] = (taglineText, v => _oldTagline = v)
             };
 
             var lines = response.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)
@@ -350,6 +345,8 @@ namespace glFTPd_Commander.Views
                 }
 
                 _oldFlags = newFlags;
+                GroupChanged?.Invoke();
+                UserChanged?.Invoke(_username);
                 await LoadUserDetails();
             }
             catch (Exception ex)
@@ -392,16 +389,9 @@ namespace glFTPd_Commander.Views
             }
         }
         
-        private void ExpiresTextBox_PreviewTextInput(object sender, TextCompositionEventArgs e)
+        private void ExpiresInput(object sender, TextCompositionEventArgs e)
         {
-            foreach (char c in e.Text)
-            {
-                if (!char.IsDigit(c) && c != '-')
-                {
-                    e.Handled = true;
-                    return;
-                }
-            }
+            glFTPd_Commander.Utils.InputUtils.DateOrZeroInputFilter(sender, e);
         }
         
         private async void ExpiresTextBox_LostFocus(object sender, RoutedEventArgs e)
@@ -409,6 +399,14 @@ namespace glFTPd_Commander.Views
             string newVal = expiresText.Text.Trim();
             if (_oldExpires == newVal) return;
             if (newVal.Equals("Never", StringComparison.OrdinalIgnoreCase)) newVal = "0";
+
+            if (!glFTPd_Commander.Utils.InputUtils.IsValidExpiresInput(newVal))
+            {
+                MessageBox.Show("Expires must be 0 or in the format YYYY-MM-DD.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                expiresText.Text = _oldExpires;
+                expiresText.Focus();
+                return;
+            }
 
             if (_ftp == null || _ftpClient == null)
             {
@@ -491,6 +489,8 @@ namespace glFTPd_Commander.Views
                     throw new Exception(result);
 
                 _username = newName; // Update the local username after rename
+                GroupChanged?.Invoke();
+
                 await LoadUserDetails();
             }
             catch (Exception ex)
@@ -576,7 +576,7 @@ namespace glFTPd_Commander.Views
             await _ftp.ConnectionLock.WaitAsync();
             try
             {
-                var result = await Task.Run(() => _ftp.ExecuteCommand($"SITE CHANGE {_username} tagline \"{newVal}\"", _ftpClient));
+                var result = await Task.Run(() => _ftp.ExecuteCommand($"SITE CHANGE {_username} tagline {newVal}", _ftpClient));
                 if (result.Contains("Error")) throw new Exception(result);
                 _oldTagline = newVal;
                 await LoadUserDetails();
@@ -605,7 +605,7 @@ namespace glFTPd_Commander.Views
             await _ftp.ConnectionLock.WaitAsync();
             try
             {
-                var result = await Task.Run(() => _ftp.ExecuteCommand($"SITE CHANGE {_username} comment \"{newVal}\"", _ftpClient));
+                var result = await Task.Run(() => _ftp.ExecuteCommand($"SITE CHANGE {_username} comment {newVal}", _ftpClient));
                 if (result.Contains("Error")) throw new Exception(result);
                 _oldUserComment = newVal;
                 await LoadUserDetails();
@@ -1088,7 +1088,6 @@ namespace glFTPd_Commander.Views
             }
         }
 
-
         protected override void OnPreviewKeyDown(System.Windows.Input.KeyEventArgs e)
         {
             base.OnPreviewKeyDown(e);
@@ -1098,6 +1097,16 @@ namespace glFTPd_Commander.Views
                 RequestClose?.Invoke();
                 e.Handled = true;
             }
+        }
+
+        private void ValueInput(object sender, TextCompositionEventArgs e)
+        {
+            glFTPd_Commander.Utils.InputUtils.DigitsOrNegative(sender, e);
+        }
+
+        private void FlagsInput(object sender, TextCompositionEventArgs e)
+        {
+            glFTPd_Commander.Utils.InputUtils.DigitsAndLettersOnly(sender, e);
         }
     }
 }

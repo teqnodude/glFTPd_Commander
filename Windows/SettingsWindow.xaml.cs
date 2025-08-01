@@ -1,4 +1,5 @@
 ﻿using glFTPd_Commander.Services;
+using glFTPd_Commander.Utils;
 using glFTPd_Commander.Windows;
 using System.Collections.ObjectModel;
 using System.Configuration;
@@ -6,13 +7,12 @@ using System.IO;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
-using MessageBox = System.Windows.MessageBox;
+using System.Windows.Input;
 
 namespace glFTPd_Commander.Windows
 {
     public partial class SettingsWindow : BaseWindow
     {
-        private readonly string settingsPath = ConfigurationManager.AppSettings["FtpConfigPath"] ?? "ftpconfig.txt";
         private bool isPasswordVisible = false;
         private ObservableCollection<FtpConnection> connections = new();
         private FtpConnection? currentConnection;
@@ -35,79 +35,25 @@ namespace glFTPd_Commander.Windows
             }
             Loaded += (s, e) => txtConnectionName.Focus();
         }
-
-        public class FtpConnection
-        {
-            public string? Name { get; set; }
-            public string? SslMode { get; set; }
-            public string? Host { get; set; }
-            public string? Username { get; set; }
-            public string? Password { get; set; }
-            public string? Port { get; set; }
-            public string? Mode { get; set; }
-        }
-
+        
         private void LoadConnections()
         {
             connections.Clear();
-        
-            if (!File.Exists(settingsPath))
-                return;
-        
-            var lines = File.ReadAllLines(settingsPath);
-            FtpConnection? current = null;
-        
-            foreach (var line in lines)
+            foreach (var conn in SettingsManager.GetFtpConnections())
             {
-                if (line.StartsWith("[") && line.EndsWith("]"))
+                connections.Add(new FtpConnection
                 {
-                    if (current != null)
-                    {
-                        connections.Add(current);
-                    }
-                    current = new FtpConnection();
-                    var encryptedName = line.Trim('[', ']');
-                    current.Name = FTP.TryDecryptString(encryptedName) ?? encryptedName;
-                }
-                else if (current != null)
-                {
-                    if (line.StartsWith("Host=", StringComparison.OrdinalIgnoreCase))
-                    {
-                        var encryptedHost = line.Substring("Host=".Length).Trim();
-                        current.Host = FTP.TryDecryptString(encryptedHost) ?? encryptedHost;
-                    }
-                    else if (line.StartsWith("Port=", StringComparison.OrdinalIgnoreCase))
-                    {
-                        var encryptedPort = line.Substring("Port=".Length).Trim();
-                        current.Port = FTP.TryDecryptString(encryptedPort) ?? encryptedPort;
-                    }
-                    else if (line.StartsWith("Username=", StringComparison.OrdinalIgnoreCase))
-                    {
-                        var encryptedUsername = line.Substring("Username=".Length).Trim();
-                        current.Username = FTP.TryDecryptString(encryptedUsername) ?? encryptedUsername;
-                    }
-                    else if (line.StartsWith("Password=", StringComparison.OrdinalIgnoreCase))
-                    {
-                        var encryptedPassword = line.Substring("Password=".Length).Trim();
-                        current.Password = FTP.TryDecryptString(encryptedPassword) ?? encryptedPassword;
-                    }
-                    else if (line.StartsWith("Type=", StringComparison.OrdinalIgnoreCase))
-                    {
-                        current.Mode = line.Substring("Type=".Length).Trim();
-                    }
-                    else if (line.StartsWith("SslMode=", StringComparison.OrdinalIgnoreCase))
-                    {
-                        current.SslMode = line.Substring("SslMode=".Length).Trim();
-                    }
-                }
+                    Name = conn.Name,
+                    Host = conn.Host,
+                    Port = conn.Port,
+                    Username = conn.Username,
+                    Password = conn.Password,
+                    Mode = conn.Mode,
+                    SslMode = conn.SslMode
+                });
             }
-        
-            if (current != null)
-            {
-                connections.Add(current);
-            }
-        
         }
+
 
         private void connectionComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
@@ -174,36 +120,47 @@ namespace glFTPd_Commander.Windows
         {
             if (connectionComboBox.SelectedIndex >= 0)
             {
+                // Remove selected connection from the ObservableCollection
                 connections.RemoveAt(connectionComboBox.SelectedIndex);
-        
+            
+                // Save the new list to settings.json via SettingsManager
+                var validConnections = connections
+                    .Where(c => !string.IsNullOrWhiteSpace(c.Name) &&
+                                !string.IsNullOrWhiteSpace(c.Host) &&
+                                !string.IsNullOrWhiteSpace(c.Username) &&
+                                !string.IsNullOrWhiteSpace(c.Password) &&
+                                !string.IsNullOrWhiteSpace(c.Port))
+                    .ToList();
+            
+                SettingsManager.SetFtpConnections(validConnections);
+            
                 if (connections.Count == 0)
                 {
                     currentConnection = null;
-                    if (File.Exists(settingsPath))
-                        File.Delete(settingsPath);
-        
                     DisplayConnection(new FtpConnection()); // Clear fields in UI
                     btnSave.IsEnabled = false;
-
+            
+                    // Optionally update the Connect menu in MainWindow and handle disconnect
                     if (Owner is MainWindow mainWindow)
                     {
                         mainWindow.PopulateConnectMenu();
-                    
-                        // Disconnect if the removed connection is the one in use
+            
+                        // If current connection was removed, force disconnect
                         string? currentEncrypted = mainWindow.CurrentConnectionName;
-                        bool stillExists = FTP.GetAllConnections().Any(c =>
-                            c["Name"].Equals(currentEncrypted, StringComparison.Ordinal));
-                    
+                        bool stillExists = validConnections.Any(c =>
+                            c.Name?.Equals(currentEncrypted, StringComparison.Ordinal) == true);
+            
                         if (!stillExists)
                         {
                             mainWindow.ForceDisconnect("The connection you were using has been removed.");
+                            mainWindow.PopulateConnectMenu();
                         }
                     }
                 }
                 else
                 {
                     connectionComboBox.SelectedIndex = 0; // Select first remaining item
-                    Save_Click(null!, null!); // Persist updated list
+                    // You don't need to call Save_Click again—it is all handled above
                 }
             }
         }
@@ -219,7 +176,6 @@ namespace glFTPd_Commander.Windows
             string username = txtUsername.Text.Trim();
             string password = isPasswordVisible ? txtPasswordVisible.Text : txtPassword.Password;
         
-            // Check for duplicate names (excluding current connection)
             if (connections.Any(c => c != currentConnection && c.Name?.Equals(newName, StringComparison.OrdinalIgnoreCase) == true))
             {
                 MessageBox.Show("A connection with this name already exists.", "Duplicate Name", 
@@ -227,7 +183,6 @@ namespace glFTPd_Commander.Windows
                 return;
             }
         
-            // Update current connection with new values (don't encrypt yet)
             currentConnection.Name = newName;
             currentConnection.Host = host;
             currentConnection.Username = username;
@@ -236,68 +191,28 @@ namespace glFTPd_Commander.Windows
             currentConnection.Mode = (cmbMode.SelectedItem as ComboBoxItem)?.Tag as string ?? "PASV";
             currentConnection.SslMode = (cmbSslMode.SelectedItem as ComboBoxItem)?.Tag as string ?? "Explicit";
         
-            try
-            {
-                var validConnections = connections
-                    .Where(c => !string.IsNullOrWhiteSpace(c.Name) &&
-                                !string.IsNullOrWhiteSpace(c.Host) &&
-                                !string.IsNullOrWhiteSpace(c.Username) &&
-                                !string.IsNullOrWhiteSpace(c.Password) &&
-                                !string.IsNullOrWhiteSpace(c.Port))
-                    .ToList();
-                
-                if (validConnections.Count == 0)
-                {
-                    if (File.Exists(settingsPath))
-                        File.Delete(settingsPath);
-                
-                    DialogResult = true;
-                    Close();
-                    return;
-                }
-
-                var configContent = new StringBuilder();
-
-                foreach (var conn in connections)
-                {
-                    // Encrypt all sensitive fields before saving
-                    var encryptedName = FTP.EncryptString(conn.Name ?? "");
-                    var encryptedPort = FTP.EncryptString(conn.Port ?? "");
-                    var encryptedHost = FTP.EncryptString(conn.Host ?? "");
-                    var encryptedUsername = FTP.EncryptString(conn.Username ?? "");
-                    var encryptedPassword = FTP.EncryptString(conn.Password ?? "");
-
+            // Save all connections back to SettingsManager
+            var validConnections = connections
+                .Where(c => !string.IsNullOrWhiteSpace(c.Name) &&
+                            !string.IsNullOrWhiteSpace(c.Host) &&
+                            !string.IsNullOrWhiteSpace(c.Username) &&
+                            !string.IsNullOrWhiteSpace(c.Password) &&
+                            !string.IsNullOrWhiteSpace(c.Port))
+                .ToList();
         
-                    configContent.AppendLine($"[{encryptedName}]");
-                    configContent.AppendLine($"Host={encryptedHost}");
-                    configContent.AppendLine($"Port={encryptedPort}");
-                    configContent.AppendLine($"Username={encryptedUsername}");
-                    configContent.AppendLine($"Password={encryptedPassword}");
-                    configContent.AppendLine($"Type={conn.Mode}");
-                    configContent.AppendLine($"SslMode={conn.SslMode}");
-                    configContent.AppendLine();
-                }
-
-        
-                File.WriteAllText(settingsPath, configContent.ToString());
-                this.DialogResult = true;
-                Close();
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Error saving connections: {ex.Message}", "Error", 
-                               MessageBoxButton.OK, MessageBoxImage.Error);
-            }
+            SettingsManager.SetFtpConnections(validConnections);
+            this.DialogResult = true;
+            Close();
         }
+
 
         private void InputField_TextChanged(object sender, RoutedEventArgs e)
         {
             bool allFilled = !string.IsNullOrWhiteSpace(txtConnectionName.Text) &&
                              !string.IsNullOrWhiteSpace(txtIP.Text) &&
                              !string.IsNullOrWhiteSpace(txtPort.Text) &&
-                             !string.IsNullOrWhiteSpace(txtUsername.Text) &&
-                             !string.IsNullOrWhiteSpace((isPasswordVisible ? txtPasswordVisible.Text : txtPassword.Password));
-        
+                             !string.IsNullOrWhiteSpace(txtUsername.Text);
+
             btnSave.IsEnabled = allFilled;
         }
 
@@ -324,5 +239,26 @@ namespace glFTPd_Commander.Windows
         {
             this.Close();
         }
+
+        protected override void OnClosed(EventArgs e)
+        {
+            base.OnClosed(e);
+        
+            if (Owner is MainWindow mainWindow)
+            {
+                mainWindow.PopulateConnectMenu();
+            }
+        }
+
+        private void ServerInput(object sender, TextCompositionEventArgs e)
+        {
+            glFTPd_Commander.Utils.InputUtils.IpAddressInputFilter(sender, e);
+        }
+
+        private void AmountInput(object sender, TextCompositionEventArgs e)
+        {
+            glFTPd_Commander.Utils.InputUtils.DigitsOnly(sender, e);
+        }
+
     }
 }

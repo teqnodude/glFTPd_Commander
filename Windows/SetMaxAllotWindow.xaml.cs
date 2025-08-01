@@ -4,7 +4,7 @@ using glFTPd_Commander.Services;
 using glFTPd_Commander.Windows;
 using System.Windows;
 using System.Windows.Input;
-using MessageBox = System.Windows.MessageBox;
+
 
 namespace glFTPd_Commander.Windows
 {
@@ -17,13 +17,6 @@ namespace glFTPd_Commander.Windows
         public string Amount => amountText.Text.Trim();
         public string? Unit => (unitsComboBox.SelectedItem as UnitItem)?.Code;
 
-        public List<UnitItem> Units { get; } = new()
-        {
-            new UnitItem { Display = "MiB", Code = "M" },
-            new UnitItem { Display = "GiB", Code = "G" },
-            new UnitItem { Display = "TiB", Code = "T" }
-        };
-
         public SetMaxAllotWindow(FTP ftp, FtpClient ftpClient, string group)
         {
             InitializeComponent();
@@ -31,7 +24,7 @@ namespace glFTPd_Commander.Windows
             _ftpClient = ftpClient;
             _group = group;
 
-            unitsComboBox.ItemsSource = Units;
+            unitsComboBox.ItemsSource = UnitProvider.SizeUnits;
             unitsComboBox.SelectedIndex = 1; // Default to GiB
             Loaded += (s, e) => amountText.Focus();
         }
@@ -74,14 +67,7 @@ namespace glFTPd_Commander.Windows
 
         private void AmountInput(object sender, TextCompositionEventArgs e)
         {
-            foreach (char c in e.Text)
-            {
-                if (!char.IsDigit(c))
-                {
-                    e.Handled = true;
-                    return;
-                }
-            }
+            glFTPd_Commander.Utils.InputUtils.DigitsOnly(sender, e);
         }
     }
 }

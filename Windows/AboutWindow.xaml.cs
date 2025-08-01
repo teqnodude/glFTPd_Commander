@@ -7,7 +7,6 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Navigation;
 using static glFTPd_Commander.Utils.UpdateChecker;
-using MessageBox = System.Windows.MessageBox;
 
 namespace glFTPd_Commander.Windows
 {

@@ -1,4 +1,4 @@
-﻿using MessageBox = System.Windows.MessageBox;
+﻿
 using System.Windows;
 
 namespace glFTPd_Commander.Windows

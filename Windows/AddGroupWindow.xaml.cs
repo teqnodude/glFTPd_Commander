@@ -1,7 +1,7 @@
 ﻿using glFTPd_Commander.Windows;
 using System.Windows;
 using System.Windows.Controls;
-using MessageBox = System.Windows.MessageBox;
+
 
 namespace glFTPd_Commander.Windows
 {

@@ -4,7 +4,7 @@ using glFTPd_Commander.Services;
 using glFTPd_Commander.Windows;
 using System.Windows;
 using System.Windows.Input;
-using MessageBox = System.Windows.MessageBox;
+
 
 namespace glFTPd_Commander.Windows
 {
@@ -20,13 +20,6 @@ namespace glFTPd_Commander.Windows
         public string Amount => amountText.Text.Trim();
         public string? Unit => (unitsComboBox.SelectedItem as UnitItem)?.Code;
 
-        public List<UnitItem> Units { get; } = new()
-        {
-            new UnitItem { Display = "MiB", Code = "M" },
-            new UnitItem { Display = "GiB", Code = "G" },
-            new UnitItem { Display = "TiB", Code = "T" }
-        };
-
         public CreditAdjustWindow(FTP ftp, FtpClient ftpClient, string username, string operation)
         {
             InitializeComponent();
@@ -35,7 +28,7 @@ namespace glFTPd_Commander.Windows
             _username = username;
             _operation = operation.ToUpperInvariant(); // GIVE or TAKE
 
-            unitsComboBox.ItemsSource = Units;
+            unitsComboBox.ItemsSource = UnitProvider.SizeUnits;
             unitsComboBox.SelectedIndex = 1; // default to GiB
 
             this.Title = $"{OperationName} Credits";
@@ -82,7 +75,7 @@ namespace glFTPd_Commander.Windows
 
         private void AmountInput(object sender, TextCompositionEventArgs e)
         {
-            e.Handled = !e.Text.All(char.IsDigit);
+            glFTPd_Commander.Utils.InputUtils.DigitsOnly(sender, e);
         }
     }
 }

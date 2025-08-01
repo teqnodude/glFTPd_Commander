@@ -7,8 +7,6 @@ using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows;
-using Application = System.Windows.Application;
-using MessageBox = System.Windows.MessageBox;
 
 namespace glFTPd_Commander.Utils
 {

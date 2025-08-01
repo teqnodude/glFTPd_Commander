@@ -3,7 +3,7 @@ using glFTPd_Commander.Services;
 using glFTPd_Commander.Windows;
 using System.Windows;
 using System.Windows.Controls;
-using MessageBox = System.Windows.MessageBox;
+
 
 namespace glFTPd_Commander.Windows
 {
@@ -47,7 +47,7 @@ namespace glFTPd_Commander.Windows
             {
                 var groups = await Task.Run(() => _ftp.GetGroups(_ftpClient));
 
-                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                Application.Current.Dispatcher.Invoke(() =>
                 {
                     cmbGroups.ItemsSource = groups
                         .OrderBy(g => g.Group)

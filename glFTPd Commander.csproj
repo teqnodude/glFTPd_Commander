@@ -3,7 +3,6 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net9.0-windows</TargetFramework>
-	<UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
@@ -12,7 +11,7 @@
 	<EnablePreviewFeatures>true</EnablePreviewFeatures>
     <NoWarn>$(NoWarn);WPF0001</NoWarn>
 	<Product>glFTPd Commander</Product>
-	<Version>1.0.0-rc2</Version>
+	<Version>1.0.0-rc3</Version>
 	<Company>teqnodude</Company>
 	<Authors>teqnodude</Authors>
 	<Description>FTP management of users and groups</Description>
@@ -20,6 +19,14 @@
 	<PackageProjectUrl></PackageProjectUrl>
 	<PackageIcon></PackageIcon>
 </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <DebugType>none</DebugType>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <DebugType>none</DebugType>
+  </PropertyGroup>
 
   <ItemGroup>
     <None Remove="App.config" />

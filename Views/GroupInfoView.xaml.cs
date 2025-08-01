@@ -5,13 +5,14 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Text.RegularExpressions;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
-using MessageBox = System.Windows.MessageBox;
+
 using Debug = System.Diagnostics.Debug;
 
 namespace glFTPd_Commander.Views
 {
-    public partial class GroupInfoView : System.Windows.Controls.UserControl, IUnselectable
+    public partial class GroupInfoView : BaseUserControl, IUnselectable
     {
         private FTP _ftp;
         private FtpClient _ftpClient;
@@ -49,6 +50,11 @@ namespace glFTPd_Commander.Views
 
         private async void GroupInfoView_Loaded(object sender, RoutedEventArgs e)
         {
+            await ReloadGroupDetails();
+        }
+
+        private async Task ReloadGroupDetails()
+        {
             try
             {
                 // Synchronous connection check:
@@ -58,28 +64,28 @@ namespace glFTPd_Commander.Views
                         MessageBoxButton.OK, MessageBoxImage.Error);
                     return;
                 }
-
+        
                 GroupNameTextBox.Text = _group;
-
+        
                 var siteGrpTask = Task.Run(() => _ftp.ExecuteCommand($"SITE GRP {_group}", _ftpClient));
                 var siteGroupsTask = Task.Run(() => _ftp.ExecuteCommand("SITE GROUPS", _ftpClient));
                 var siteGinfoTask = Task.Run(() => _ftp.ExecuteCommand($"SITE GINFO {_group}", _ftpClient));
-
+        
                 await Task.WhenAll(siteGrpTask, siteGroupsTask, siteGinfoTask);
-
+        
                 _originalDescription = ParseGroupDescription(siteGroupsTask.Result, _group);
                 DescriptionTextBox.Text = _originalDescription;
-
+        
                 _originalInfo = ParseGroupInfo(siteGrpTask.Result);
                 UpdateUiFromGroupInfo(_originalInfo);
-
+        
                 LoadUsersAndAdmins(siteGinfoTask.Result);
-
+        
                 if (_groupAdmins.Count > 0)
                 {
                     _originalGroupAdmin = _groupAdmins[0];
                 }
-
+        
                 _oldGroupName = GroupNameTextBox.Text;
                 _oldDescription = DescriptionTextBox.Text;
                 _oldSlots = SlotsTextBox.Text;
@@ -90,11 +96,11 @@ namespace glFTPd_Commander.Views
             }
             catch (Exception ex)
             {
-                System.Windows.MessageBox.Show($"Error loading group information: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Error loading group information: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
-        private async Task ApplyGroupChange(string command, string oldValue, Action<string> updateOld, System.Windows.Controls.TextBox control)
+        private async Task ApplyGroupChange(string command, string oldValue, Action<string> updateOld, TextBox control)
         {
             string newValue = control.Text.Trim();
             if (newValue == oldValue?.Trim()) return;  // ← prevent redundant command execution
@@ -113,17 +119,25 @@ namespace glFTPd_Commander.Views
                 string result = await Task.Run(() => _ftp.ExecuteCommand(command, _ftpClient));
                 if (result.Contains("Error"))
                 {
-                    System.Windows.MessageBox.Show($"Error applying change: {result}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    MessageBox.Show($"Error applying change: {result}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                     control.Text = oldValue;
                     return;
                 }
 
                 updateOld(newValue);
+                await ReloadGroupDetails();
                 GroupChanged?.Invoke();
+
+                if (!_ftpClient.IsConnected)
+                {
+                    MessageBox.Show("The connection to the FTP server was lost.", "Disconnected", MessageBoxButton.OK, MessageBoxImage.Error);
+                    // Optional: trigger UI disconnect flow or reconnect logic here.
+                    return;
+                }
             }
             catch (Exception ex)
             {
-                System.Windows.MessageBox.Show($"Exception applying change: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Exception applying change: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 control.Text = oldValue;
             }
             finally { _ftp.ConnectionLock.Release(); }
@@ -148,7 +162,7 @@ namespace glFTPd_Commander.Views
             }
             catch (Exception ex)
             {
-                System.Windows.MessageBox.Show($"Error renaming group: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Error renaming group: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 GroupNameTextBox.Text = _oldGroupName;
             }
             finally { _ftp.ConnectionLock.Release(); }
@@ -192,7 +206,7 @@ namespace glFTPd_Commander.Views
                         string result = await Task.Run(() => _ftp.ExecuteCommand($"SITE CHGADMIN {user} {_group}", _ftpClient));
                         if (result.Contains("Error"))
                         {
-                            System.Windows.MessageBox.Show($"Error adding user to group: {result}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                            MessageBox.Show($"Error adding user to group: {result}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                             continue;
                         }
         
@@ -202,7 +216,7 @@ namespace glFTPd_Commander.Views
                     }
                     catch (Exception ex)
                     {
-                        System.Windows.MessageBox.Show($"Exception adding user to group: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                        MessageBox.Show($"Exception adding user to group: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                     }
                 }
             }
@@ -275,7 +289,7 @@ namespace glFTPd_Commander.Views
             }
             catch (Exception ex)
             {
-                System.Windows.MessageBox.Show($"Error loading users: {ex.Message}", "Error");
+                MessageBox.Show($"Error loading users: {ex.Message}", "Error");
             }
         }
 
@@ -483,9 +497,7 @@ namespace glFTPd_Commander.Views
             }
         }
 
-
-
-        protected override void OnPreviewKeyDown(System.Windows.Input.KeyEventArgs e)
+        protected override void OnPreviewKeyDown(KeyEventArgs e)
         {
             base.OnPreviewKeyDown(e);
             if (e.Key == Key.Escape)
@@ -495,6 +507,12 @@ namespace glFTPd_Commander.Views
                 e.Handled = true;
             }
         }
+
+        private void ValueInput(object sender, TextCompositionEventArgs e)
+        {
+            glFTPd_Commander.Utils.InputUtils.DigitsOrNegative(sender, e);
+        }
+
     }
 
     public class GroupInfo

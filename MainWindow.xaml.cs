@@ -13,7 +13,7 @@ using System.Windows.Input;
 using System.Windows.Threading;
 using static glFTPd_Commander.Services.FTP;
 using Debug = System.Diagnostics.Debug;
-using MessageBox = System.Windows.MessageBox;
+
 
 namespace glFTPd_Commander
 {
@@ -113,6 +113,7 @@ namespace glFTPd_Commander
                     {
                         _isSiteOp = value;
                         OnPropertyChanged(nameof(IsSiteOp));
+                        OnPropertyChanged(nameof(Icon)); 
                     }
                 }
             }
@@ -126,6 +127,7 @@ namespace glFTPd_Commander
                     {
                         _isGroupAdmin = value;
                         OnPropertyChanged(nameof(IsGroupAdmin));
+                        OnPropertyChanged(nameof(Icon)); 
                     }
                 }
             }
@@ -201,19 +203,55 @@ namespace glFTPd_Commander
             usersGroupsMenuItem.Visibility = Visibility.Collapsed;
             _ = UpdateChecker.CheckForUpdateSilently(showMessage: false);
 
-            if (CustomCommandSlots.Count == 0)
-                for (int i = 0; i < 20; i++) CustomCommandSlots.Add(new CustomCommandSlot());
-
+            // Load slots from SettingsManager (keep your ObservableCollection as UI source)
             CustomCommandSlotClickCommand = new RelayCommand<CustomCommandSlot>(OnCustomCommandSlotClicked);
             RemoveCustomCommandCommand = new RelayCommand<CustomCommandSlot>(OnRemoveCustomCommand);
-            CustomCommandSlotStorage.Load(CustomCommandSlots);
+            
+            // Load slots from SettingsManager (fill your ObservableCollection)
+            CustomCommandSlots.Clear();
+            var loadedSlots = SettingsManager.GetCustomCommandSlots();
+            
+            // Always 20 slots for UI, fill or pad as needed
+            for (int i = 0; i < 20; i++)
+            {
+                if (i < loadedSlots.Count)
+                    CustomCommandSlots.Add(loadedSlots[i]);
+                else
+                    CustomCommandSlots.Add(new CustomCommandSlot());
+            }
+
+            // Restore the placement of app on startup
+            var placement = SettingsManager.GetMainWindowPlacement();
+            if (placement != null)
+            {
+                this.Left = placement.Left;
+                this.Top = placement.Top;
+                this.Width = placement.Width;
+                this.Height = placement.Height;
+                if (placement.State == "Maximized")
+                    this.WindowState = WindowState.Maximized;
+                else if (placement.State == "Minimized")
+                    this.WindowState = WindowState.Minimized;
+                else
+                    this.WindowState = WindowState.Normal;
+            }
         }
 
         protected override void OnClosed(EventArgs e)
         {
             _ftpClient?.Disconnect();
             _ftpClient?.Dispose();
-            CustomCommandSlotStorage.Save(CustomCommandSlots);
+
+            // Save the placement of app on close
+            var info = new WindowPlacementInfo
+            {
+                Left = this.Left,
+                Top = this.Top,
+                Width = this.Width,
+                Height = this.Height,
+                State = this.WindowState.ToString()
+            };
+            SettingsManager.SetMainWindowPlacement(info);
             base.OnClosed(e);
         }
 
@@ -255,18 +293,60 @@ namespace glFTPd_Commander
 
                 // USERS
                 var usersNode = new FtpTreeItem { Name = $"Users ({users.Count + deletedUsers.Count})" };
-
+                
+                // --- Optimized: Build user role map while building group nodes ---
+                var userRoleMap = new Dictionary<string, (bool isSiteOp, bool isGroupAdmin)>(StringComparer.OrdinalIgnoreCase);
+                
+                var groupsNode = new FtpTreeItem { Name = $"Groups ({groups.Count})" };
+                foreach (var group in groups.OrderBy(g => g.Group, StringComparer.OrdinalIgnoreCase))
+                {
+                    string label = string.IsNullOrWhiteSpace(group.Description)
+                        ? $"{group.Group} ({group.UserCount})"
+                        : $"{group.Group} - {group.Description} ({group.UserCount})";
+                
+                    var groupNode = new FtpTreeItem
+                    {
+                        Name = label,
+                        Group = group
+                    };
+                
+                    var groupUsers = await System.Threading.Tasks.Task.Run(() => _ftp.GetUsersInGroup(_ftpClient, group.Group));
+                    foreach (var (userName, isSiteOp, isGroupAdmin) in groupUsers.OrderBy(u => u.Username))
+                    {
+                        groupNode.Children.Add(new FtpTreeItem
+                        {
+                            Name = (isSiteOp ? "*" : isGroupAdmin ? "+" : "") + userName,
+                            User = new FtpUser { Username = userName, Group = group.Group },
+                            IsSiteOp = isSiteOp,
+                            IsGroupAdmin = isGroupAdmin
+                        });
+                
+                        // Aggregate roles for user
+                        if (!userRoleMap.TryGetValue(userName, out var flags))
+                            userRoleMap[userName] = (isSiteOp, isGroupAdmin);
+                        else
+                            userRoleMap[userName] = (flags.isSiteOp || isSiteOp, flags.isGroupAdmin || isGroupAdmin);
+                    }
+                    groupsNode.Children.Add(groupNode);
+                }
+                root.Children.Add(usersNode);
+                
+                
+                // Now, for active users:
                 var activeUsersNode = new FtpTreeItem { Name = $"Active Users ({users.Count})" };
                 foreach (var user in users.OrderBy(u => u.Username))
                 {
+                    var (isSiteOp, isGroupAdmin) = userRoleMap.TryGetValue(user.Username, out var roles) ? roles : (false, false);
                     activeUsersNode.Children.Add(new FtpTreeItem
                     {
-                        Name = user.Username,
-                        User = user
+                        Name = (isSiteOp ? "*" : isGroupAdmin ? "+" : "") + user.Username,
+                        User = user,
+                        IsSiteOp = isSiteOp,
+                        IsGroupAdmin = isGroupAdmin
                     });
                 }
                 usersNode.Children.Add(activeUsersNode);
-
+                
                 var deletedUsersNode = new FtpTreeItem { Name = $"Deleted Users ({deletedUsers.Count})" };
                 foreach (var user in deletedUsers.OrderBy(u => u.Username))
                 {
@@ -278,36 +358,8 @@ namespace glFTPd_Commander
                     });
                 }
                 usersNode.Children.Add(deletedUsersNode);
-                root.Children.Add(usersNode);
-
-                // GROUPS
-                var groupsNode = new FtpTreeItem { Name = $"Groups ({groups.Count})" };
-                foreach (var group in groups.OrderBy(g => g.Group, StringComparer.OrdinalIgnoreCase))
-                {
-                    string label = string.IsNullOrWhiteSpace(group.Description)
-                        ? $"{group.Group} ({group.UserCount})"
-                        : $"{group.Group} - {group.Description} ({group.UserCount})";
-
-                    var groupNode = new FtpTreeItem
-                    {
-                        Name = label,
-                        Group = group
-                    };
-
-                    var groupUsers = await System.Threading.Tasks.Task.Run(() => _ftp.GetUsersInGroup(_ftpClient, group.Group));
-                    foreach (var (userName, isSiteOp, isGroupAdmin) in groupUsers.OrderBy(u => u.Username))
-                    {
-                        groupNode.Children.Add(new FtpTreeItem
-                        {
-                            Name = (isSiteOp ? "*" : isGroupAdmin ? "+" : "") + userName,
-                            User = new FtpUser { Username = userName, Group = group.Group },
-                            IsSiteOp = isSiteOp,
-                            IsGroupAdmin = isGroupAdmin
-                        });
-                    }
-                    groupsNode.Children.Add(groupNode);
-                }
                 root.Children.Add(groupsNode);
+
 
                 // INCREMENTAL UPDATE:
                 if (RootItems.Count == 0)
@@ -686,7 +738,7 @@ namespace glFTPd_Commander
             await ExecuteCustomCommandAsync();
         }
         
-        private async void CommandInputComboBox_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+        private async void CommandInputComboBox_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key == Key.Enter)
             {
@@ -747,9 +799,10 @@ namespace glFTPd_Commander
         {
             connectMenuItem.Items.Clear();
         
-            var connections = FTP.GetAllConnections();
+            var connections = SettingsManager.GetFtpConnections();
             if (connections.Count == 0)
             {
+                connectMenuItem.Items.Clear();
                 connectMenuItem.Items.Add(new MenuItem
                 {
                     Header = "(No connections found)",
@@ -757,29 +810,30 @@ namespace glFTPd_Commander
                 });
                 return;
             }
-        
+            
+            connectMenuItem.Items.Clear();
             foreach (var conn in connections)
             {
-                string decryptedName = FTP.TryDecryptString(conn["Name"]) ?? conn["Name"];
                 var item = new MenuItem
                 {
-                    Header = decryptedName,
-                    Tag = conn["Name"]
+                    Header = conn.Name,
+                    Tag = conn
                 };
                 item.Click += ConnectToSelectedConnection_Click;
                 connectMenuItem.Items.Add(item);
             }
+
         }
 
         private void ConnectToSelectedConnection_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is MenuItem menuItem && menuItem.Tag is string encryptedConnectionName)
+            if (sender is MenuItem menuItem && menuItem.Tag is FtpConnection conn)
             {
-                AttemptConnection(encryptedConnectionName);
+                AttemptConnection(conn);
             }
         }
 
-        private void AttemptConnection(string encryptedConnectionName)
+        private void AttemptConnection(FtpConnection conn)
         {
             try
             {
@@ -789,12 +843,25 @@ namespace glFTPd_Commander
                 _ftpClient = null;
                 FTP.ClearSessionCaches();
         
+                // Build FTP object from encrypted values
                 _ftp = new FTP();
-                _ftp.LoadSettings(encryptedConnectionName);
-        
+
+                if (conn.Host is null || conn.Port is null || conn.Username is null || conn.Password is null)
+                {
+                    MessageBox.Show("One or more connection fields are missing.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+                _ftp.Host = conn.Host;
+                _ftp.Port = conn.Port;
+                _ftp.Username = conn.Username;
+                _ftp.Password = conn.Password;
+                _ftp.SslMode = conn.SslMode ?? "Explicit";
+                _ftp.PassiveMode = (conn.Mode ?? "PASV").Equals("PASV", StringComparison.OrdinalIgnoreCase);
+                
                 if (string.IsNullOrWhiteSpace(_ftp.Host) ||
                     string.IsNullOrWhiteSpace(_ftp.Username) ||
-                    string.IsNullOrWhiteSpace(_ftp.Password))
+                    string.IsNullOrWhiteSpace(_ftp.Password) ||
+                    string.IsNullOrWhiteSpace(_ftp.Port))
                 {
                     MessageBox.Show("Selected connection has incomplete settings", "Connection Error",
                         MessageBoxButton.OK, MessageBoxImage.Error);
@@ -805,12 +872,12 @@ namespace glFTPd_Commander
                 _ftpClient.Connect();
                 LoadFtpData();
         
-                var decryptedName = FTP.TryDecryptString(encryptedConnectionName) ?? encryptedConnectionName;
+                var decryptedName = FTP.TryDecryptString(conn.Name ?? "") ?? conn.Name ?? "";
                 baseTitle = $"glFTPd Commander v{Version} by {Author} - Connected to {decryptedName}";
                 this.Title = baseTitle;
                 disconnectMenuItem.IsEnabled = true;
                 usersGroupsMenuItem.Visibility = Visibility.Visible;
-                _currentConnectionEncryptedName = encryptedConnectionName;
+                _currentConnectionEncryptedName = conn.Name;
                 OnPropertyChanged(nameof(IsConnected));
                 connectionStartTime = DateTime.Now;
         
@@ -820,13 +887,14 @@ namespace glFTPd_Commander
                 };
                 connectionTimer.Tick += ConnectionTimer_Tick;
                 connectionTimer.Start();
-
+        
             }
             catch (Exception ex)
             {
                 MessageBox.Show($"Error: {ex.Message}", "Connection Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
+
 
         public void ForceDisconnect(string reason)
         {
@@ -857,7 +925,7 @@ namespace glFTPd_Commander
                     slot.Command = dlg.SiteCommand;
                     slot.ButtonText = string.IsNullOrWhiteSpace(dlg.CustomLabel) ? dlg.SiteCommand : dlg.CustomLabel;
                     Debug.WriteLine($"[CustomCmd] Configured slot with: {slot.Command}");
-                    CustomCommandSlotStorage.Save(CustomCommandSlots);
+                    SettingsManager.SetCustomCommandSlots(CustomCommandSlots.ToList());
                 }
             }
             else
@@ -899,7 +967,7 @@ namespace glFTPd_Commander
             slot.Command = null;
             slot.ButtonText = "Configure Button";
             Debug.WriteLine($"[CustomCmd] Removed configuration from slot.");
-            CustomCommandSlotStorage.Save(CustomCommandSlots);
+            SettingsManager.SetCustomCommandSlots(CustomCommandSlots.ToList());
         }
 
 

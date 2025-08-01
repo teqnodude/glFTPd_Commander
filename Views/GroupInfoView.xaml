@@ -1,8 +1,9 @@
-﻿<UserControl x:Class="glFTPd_Commander.Views.GroupInfoView"
+﻿<local:BaseUserControl x:Class="glFTPd_Commander.Views.GroupInfoView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:local="clr-namespace:glFTPd_Commander.Views"
              mc:Ignorable="d"
              d:DesignHeight="700" d:DesignWidth="1130">
     
@@ -29,16 +30,16 @@
                 <!-- LEFT COLUMN -->
                 <StackPanel Grid.Column="0" Margin="0 0 10 0">
                     <Label Content="Group Name:"/>
-                    <TextBox x:Name="GroupNameTextBox" LostFocus="GroupNameTextBox_LostFocus" Margin="0,0,0,10"/>
+                    <TextBox x:Name="GroupNameTextBox" GotFocus="MoveCaretToEnd" LostFocus="GroupNameTextBox_LostFocus" Margin="0,0,0,10"/>
 
                     <Label Content="Description:"/>
-                    <TextBox x:Name="DescriptionTextBox" LostFocus="DescriptionTextBox_LostFocus" Margin="0,0,0,10"/>
+                    <TextBox x:Name="DescriptionTextBox" GotKeyboardFocus="SelectAllText" LostFocus="DescriptionTextBox_LostFocus" Margin="0,0,0,10"/>
 
                     <Label Content="Slots:"/>
-                    <TextBox x:Name="SlotsTextBox" ToolTip="-1 = Unlimited" LostFocus="SlotsTextBox_LostFocus" Margin="0,0,0,10"/>
+                    <TextBox x:Name="SlotsTextBox" PreviewTextInput="ValueInput" GotKeyboardFocus="SelectAllText" ToolTip="-1 = Unlimited" LostFocus="SlotsTextBox_LostFocus" Margin="0,0,0,10"/>
 
                     <Label Content="Leech:"/>
-                    <TextBox x:Name="LeechTextBox" ToolTip="-1 = Unlimited, -2 = Disabled" LostFocus="LeechTextBox_LostFocus" Margin="0,0,0,10"/>
+                    <TextBox x:Name="LeechTextBox" PreviewTextInput="ValueInput" GotKeyboardFocus="SelectAllText" ToolTip="-1 = Unlimited, -2 = Disabled" LostFocus="LeechTextBox_LostFocus" Margin="0,0,0,10"/>
 
 					<Button x:Name="groupRemoveButton"
 								Content="Remove Group"
@@ -50,7 +51,7 @@
                 <!-- MIDDLE COLUMN -->
                 <StackPanel Grid.Column="1" Margin="0 0 10 0">
                     <Label Content="Allot:"/>
-                    <TextBox x:Name="AllotTextBox" ToolTip="-1 = Unlimited, -2 = Disabled" LostFocus="AllotTextBox_LostFocus" Margin="0,0,0,10"/>
+                    <TextBox x:Name="AllotTextBox" PreviewTextInput="ValueInput" GotKeyboardFocus="SelectAllText" ToolTip="-1 = Unlimited, -2 = Disabled" LostFocus="AllotTextBox_LostFocus" Margin="0,0,0,10"/>
 
                     <Label Content="Max Allot:"/>
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
@@ -59,10 +60,10 @@
                     </StackPanel>
 
                     <Label Content="Max Logins:"/>
-                    <TextBox x:Name="MaxLoginsTextBox" ToolTip="0 = Unlimited" LostFocus="MaxLoginsTextBox_LostFocus" Margin="0,0,0,10"/>
+                    <TextBox x:Name="MaxLoginsTextBox" PreviewTextInput="ValueInput" GotKeyboardFocus="SelectAllText" ToolTip="0 = Unlimited" LostFocus="MaxLoginsTextBox_LostFocus" Margin="0,0,0,10"/>
 
                     <Label Content="Comment:"/>
-                    <TextBox x:Name="CommentTextBox" ToolTip="Max 63 symbols" LostFocus="CommentTextBox_LostFocus" Margin="0,0,0,10"/>
+                    <TextBox x:Name="CommentTextBox" GotKeyboardFocus="SelectAllText" ToolTip="Max 63 symbols" LostFocus="CommentTextBox_LostFocus" Margin="0,0,0,10"/>
                 </StackPanel>
 
                 <!-- RIGHT COLUMN: Available Users & Group Admin Management -->
@@ -94,4 +95,4 @@
             </Grid>
         </Grid>
     </ScrollViewer>
-</UserControl>
+</local:BaseUserControl>

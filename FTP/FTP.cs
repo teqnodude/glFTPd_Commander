@@ -13,12 +13,12 @@ namespace glFTPd_Commander.Services
 {
     public class FTP
     {
-        public string Host { get; private set; } = string.Empty;
-        public string Username { get; private set; } = string.Empty;
-        public string Password { get; private set; } = string.Empty;
-        public string Port { get; private set; } = string.Empty;
-        public bool PassiveMode { get; private set; } = false;
-        public string SslMode { get; private set; } = "Explicit";
+        public string Host { get; set; } = string.Empty;
+        public string Username { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+        public string Port { get; set; } = string.Empty;
+        public bool PassiveMode { get; set; } = false;
+        public string SslMode { get; set; } = "Explicit";
 
         
         private static readonly HashSet<string> approvedInSession = new HashSet<string>();
@@ -52,97 +52,6 @@ namespace glFTPd_Commander.Services
         public FTP()
         {
             EncryptionKeyManager.Initialize();
-            LoadSettings();
-        }
-
-        public void LoadSettings(string? encryptedConnectionName = null)
-        {
-            var connections = GetAllConnections();
-            Dictionary<string, string>? config = null;
-        
-            if (encryptedConnectionName != null)
-            {
-                config = connections.FirstOrDefault(c => 
-                    c["Name"].Equals(encryptedConnectionName, StringComparison.Ordinal));
-            }
-        
-            if (config == null)
-            {
-                config = connections.FirstOrDefault();
-            }
-        
-            if (config != null)
-            {
-                if (config.TryGetValue("Host", out var host))
-                    Host = TryDecryptString(host) ?? host;
-
-                if (config.TryGetValue("Port", out var port))
-                    Port = TryDecryptString(port) ?? port;
-
-                if (config.TryGetValue("Username", out var user))
-                    Username = TryDecryptString(user) ?? user;
-
-                if (config.TryGetValue("Password", out var pass))
-                    Password = TryDecryptString(pass) ?? pass;
-
-                if (config.TryGetValue("Type", out var type))
-                    PassiveMode = type.Equals("PASV", StringComparison.OrdinalIgnoreCase);
-                else
-                    PassiveMode = true; // default to PASV
-
-                if (config.TryGetValue("SslMode", out var ssl))
-                    SslMode = ssl;
-                else
-                    SslMode = "Explicit"; // default fallback
-            }
-        }
-
-        public static List<Dictionary<string, string>> GetAllConnections()
-        {
-            string configPath = ConfigurationManager.AppSettings["FtpConfigPath"] ?? "ftpconfig.txt";
-            var connections = new List<Dictionary<string, string>>();
-        
-            if (!File.Exists(configPath))
-                return connections;
-        
-            var lines = File.ReadAllLines(configPath);
-            Dictionary<string, string>? currentConnection = null;
-        
-            foreach (var line in lines)
-            {
-                var trimmedLine = line.Trim();
-                if (string.IsNullOrWhiteSpace(trimmedLine))
-                    continue;
-        
-                if (trimmedLine.StartsWith("[") && trimmedLine.EndsWith("]"))
-                {
-                    if (currentConnection != null)
-                    {
-                        connections.Add(currentConnection);
-                    }
-                    currentConnection = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-                    var encryptedName = trimmedLine.Trim('[', ']');
-                    currentConnection["Name"] = encryptedName;
-                    currentConnection["Host"] = encryptedName;
-                }
-                else if (currentConnection != null && trimmedLine.Contains("="))
-                {
-                    var parts = trimmedLine.Split(new[] { '=' }, 2);
-                    if (parts.Length == 2)
-                    {
-                        var key = parts[0].Trim();
-                        var value = parts[1].Trim();
-                        currentConnection[key] = value;
-                    }
-                }
-            }
-        
-            if (currentConnection != null)
-            {
-                connections.Add(currentConnection);
-            }
-        
-            return connections;
         }
 
         public void ReloadSettings()
@@ -150,7 +59,6 @@ namespace glFTPd_Commander.Services
             approvedInSession.Clear();
             promptingThumbprints.Clear();
             rejectedInSession.Clear();
-            LoadSettings();
         }
 
         public static string? TryDecryptString(string cipherText)
@@ -210,9 +118,7 @@ namespace glFTPd_Commander.Services
         public FtpClient CreateClient()
         {
             if (string.IsNullOrWhiteSpace(Host))
-            {
                 throw new ArgumentException("Host address cannot be empty");
-            }
 
             // Basic host validation
             if (!Uri.CheckHostName(Host).Equals(UriHostNameType.Dns) &&
@@ -222,20 +128,7 @@ namespace glFTPd_Commander.Services
                 throw new ArgumentException("Invalid host address format");
             }
 
-            // Default to Explicit unless otherwise configured
-            string sslMode = "Explicit";
-
-            // Try to load from config if available
-            var connections = GetAllConnections();
-            var config = connections.FirstOrDefault(c =>
-                TryDecryptString(c["Host"]) == Host &&
-                TryDecryptString(c["Username"]) == Username);
-
-            if (config != null && config.TryGetValue("SslMode", out var mode))
-            {
-                sslMode = mode;
-            }
-
+            string sslMode = SslMode ?? "Explicit";
             var encryptionMode = sslMode.Equals("Implicit", StringComparison.OrdinalIgnoreCase)
                 ? FtpEncryptionMode.Implicit
                 : FtpEncryptionMode.Explicit;
@@ -243,7 +136,7 @@ namespace glFTPd_Commander.Services
             var client = new FtpClient(Host)
             {
                 Credentials = new NetworkCredential(Username, Password),
-                Port = Convert.ToInt16(Port),
+                Port = short.TryParse(Port, out short portNum) ? portNum : 21,
                 Config = {
                     EncryptionMode = encryptionMode,
                     DataConnectionEncryption = true,

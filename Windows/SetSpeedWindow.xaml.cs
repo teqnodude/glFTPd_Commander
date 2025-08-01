@@ -4,7 +4,7 @@ using glFTPd_Commander.Services;
 using glFTPd_Commander.Windows;
 using System.Windows;
 using System.Windows.Input;
-using MessageBox = System.Windows.MessageBox;
+
 
 namespace glFTPd_Commander.Windows
 {
@@ -19,15 +19,6 @@ namespace glFTPd_Commander.Windows
         public string? Unit => (unitsComboBox.SelectedItem as UnitItem)?.Code;
         private string ActionVerb => _commandField.Contains("ul", StringComparison.OrdinalIgnoreCase) ? "Upload" : "Download";
 
-
-        public List<UnitItem> Units { get; } = new()
-        {
-            new UnitItem { Display = "KiB/s", Code = "" },
-            new UnitItem { Display = "MiB/s", Code = "m" },
-            new UnitItem { Display = "GiB/s", Code = "g" },
-            new UnitItem { Display = "TiB/s", Code = "t" }
-        };
-
         public SetSpeedWindow(FTP ftp, FtpClient ftpClient, string username, string commandField)
         {
             InitializeComponent();
@@ -36,7 +27,7 @@ namespace glFTPd_Commander.Windows
             _username = username;
             _commandField = commandField;
 
-            unitsComboBox.ItemsSource = Units;
+            unitsComboBox.ItemsSource = UnitProvider.SpeedUnits;
             unitsComboBox.SelectedIndex = 1;
 
 
@@ -84,14 +75,7 @@ namespace glFTPd_Commander.Windows
 
         private void SpeedInput(object sender, TextCompositionEventArgs e)
         {
-            foreach (char c in e.Text)
-            {
-                if (!char.IsDigit(c))
-                {
-                    e.Handled = true;
-                    return;
-                }
-            }
+            glFTPd_Commander.Utils.InputUtils.DigitsOnly(sender, e);
         }
     }
 }
