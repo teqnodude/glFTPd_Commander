@@ -12,7 +12,7 @@ It comes with a built-in update checker that triggers a background update progra
 <img width="1920" height="1032" alt="Image" src="https://github.com/user-attachments/assets/41531c92-aae5-4e3c-85c2-1b7fc1e51ce7" />
 
 ### Settings
-<img width="332" height="665" alt="Image" src="https://github.com/user-attachments/assets/75e2ae89-3f7d-4913-9bc7-4de82f731e70" />
+<img width="332" height="665" alt="Image" src="https://github.com/user-attachments/assets/bd8b8a29-23ec-4a63-bd97-f90e4344ce45" />
 
 ### User
 <img width="1920" height="1032" alt="Image" src="https://github.com/user-attachments/assets/914c2925-2eee-4cd2-b0eb-ebbb574aebab" />
