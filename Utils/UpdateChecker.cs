@@ -36,7 +36,7 @@ namespace glFTPd_Commander.Utils
             try
             {
                 using var client = new HttpClient();
-                string jsonUrl = "https://raw.githubusercontent.com/teqnodude/glFTPd_Commander/master/version-test.json";
+                string jsonUrl = "https://raw.githubusercontent.com/teqnodude/glFTPd_Commander/master/version.json";
                 string json = await client.GetStringAsync(jsonUrl);
                 var versionInfo = JsonSerializer.Deserialize<VersionInfo>(json);
                 if (versionInfo == null)
@@ -246,7 +246,7 @@ namespace glFTPd_Commander.Utils
             try
             {
                 using var client = new HttpClient();
-                string jsonUrl = "https://raw.githubusercontent.com/teqnodude/glFTPd_Commander/master/version-test.json";
+                string jsonUrl = "https://raw.githubusercontent.com/teqnodude/glFTPd_Commander/master/version.json";
                 string json = await client.GetStringAsync(jsonUrl);
                 var doc = System.Text.Json.JsonDocument.Parse(json);
                 var root = doc.RootElement;
