@@ -872,8 +872,7 @@ namespace glFTPd_Commander
                 _ftpClient.Connect();
                 LoadFtpData();
         
-                var decryptedName = FTP.TryDecryptString(conn.Name ?? "") ?? conn.Name ?? "";
-                baseTitle = $"glFTPd Commander v{Version} by {Author} - Connected to {decryptedName}";
+                baseTitle = $"glFTPd Commander v{Version} by {Author} - Connected to {conn.Name}";
                 this.Title = baseTitle;
                 disconnectMenuItem.IsEnabled = true;
                 usersGroupsMenuItem.Visibility = Visibility.Visible;
