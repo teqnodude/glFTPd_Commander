@@ -1,57 +1,73 @@
-﻿using glFTPd_Commander.Windows;
+﻿using FluentFTP;
+using glFTPd_Commander.Services;
+using System;
 using System.Windows;
-using System.Windows.Controls;
-
 
 namespace glFTPd_Commander.Windows
 {
     public partial class AddGroupWindow : BaseWindow
     {
-        // Public properties to safely access the values
-        public string GroupName => txtGroupName.Text;
-        public string Description => txtDescription.Text;
+        private readonly FTP _ftp;
+        private FtpClient? _ftpClient;
 
-        public AddGroupWindow()
+        public string GroupName => txtGroupName.Text.Trim();
+        public string Description => txtDescription.Text.Trim();
+        public bool AddSuccessful { get; private set; } = false;
+
+        public AddGroupWindow(FTP ftp, FtpClient ftpClient)
         {
             InitializeComponent();
-            this.Loaded += (s, e) => txtGroupName.Focus();
+            _ftp = ftp;
+            _ftpClient = ftpClient;
+            Loaded += (s, e) => txtGroupName.Focus();
         }
 
-        private void InputField_TextChanged(object sender, TextChangedEventArgs e)
-        {
-            UpdateAddButtonState();
-        }
+        private void InputField_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+            => btnAdd.IsEnabled = !string.IsNullOrWhiteSpace(GroupName) && !string.IsNullOrWhiteSpace(Description);
 
-        private void UpdateAddButtonState()
+        private async void BtnAdd_Click(object sender, RoutedEventArgs e)
         {
-            btnAdd.IsEnabled = !string.IsNullOrWhiteSpace(txtGroupName.Text) &&
-                              !string.IsNullOrWhiteSpace(txtDescription.Text);
-        }
-
-        private void BtnAdd_Click(object sender, RoutedEventArgs e)
-        {
-            if (string.IsNullOrWhiteSpace(txtGroupName.Text))
+            if (string.IsNullOrWhiteSpace(GroupName))
             {
-                MessageBox.Show("Please enter a group name",
-                              "Validation Error",
-                              MessageBoxButton.OK,
-                              MessageBoxImage.Warning);
+                MessageBox.Show("Please enter a group name.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
                 txtGroupName.Focus();
                 return;
             }
-
-            if (string.IsNullOrWhiteSpace(txtDescription.Text))
+            if (string.IsNullOrWhiteSpace(Description))
             {
-                MessageBox.Show("Please enter a description",
-                              "Validation Error",
-                              MessageBoxButton.OK,
-                              MessageBoxImage.Warning);
+                MessageBox.Show("Please enter a description.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
                 txtDescription.Focus();
                 return;
             }
 
-            DialogResult = true;
-            Close();
+            btnAdd.IsEnabled = false;
+
+            await _ftp.ConnectionLock.WaitAsync();
+            try
+            {
+                var result = await _ftp.AddGroup(_ftpClient, _ftp, GroupName, Description);
+                if (_ftpClient == null)
+                {
+                    MessageBox.Show("Lost connection to the FTP server.", "Connection Lost", MessageBoxButton.OK, MessageBoxImage.Error);
+                    btnAdd.IsEnabled = true;
+                    return;
+                }
+                if (!string.IsNullOrEmpty(result) && !result.StartsWith("Error", StringComparison.OrdinalIgnoreCase))
+                {
+                    AddSuccessful = true;
+                    DialogResult = true;
+                    Close();
+                }
+                else
+                {
+                    MessageBox.Show(result ?? "Unknown error", "Failed to Add Group", MessageBoxButton.OK, MessageBoxImage.Error);
+                    btnAdd.IsEnabled = true;
+                }
+            }
+            finally
+            {
+                _ftp.ConnectionLock.Release();
+            }
         }
 
         private void BtnCancel_Click(object sender, RoutedEventArgs e)

@@ -43,21 +43,19 @@ namespace glFTPd_Commander.Views
             try
             {
                 ResetAllFields();
-                if (_ftp == null || _ftpClient == null)
-                {
-                    MessageBox.Show("FTP client not initialized.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                    return;
-                }
-                // Synchronous connection check:
-                if (!FTP.EnsureConnected(ref _ftpClient, _ftp))
-                {
-                    MessageBox.Show("Lost connection to the FTP server. Please reconnect.", "Connection Lost",
-                        MessageBoxButton.OK, MessageBoxImage.Error);
-                    return;
-                }
+                _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+                    if (_ftpClient == null) return;
 
-                var userDetails = await Task.Run(() => _ftp.GetUserDetails(_username, _ftpClient));
-                if (userDetails == null) return;
+                var (userDetails, updatedClient) = await FtpBase.ExecuteWithConnectionAsync(
+                    _ftpClient, _ftp!, c => Task.Run(() => _ftp!.GetUserDetails(_username, c))
+                );
+                _ftpClient = updatedClient;
+
+                if (userDetails == null)
+                {
+                    MessageBox.Show("Lost connection to the FTP server. Please reconnect.", "Connection Lost", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
 
                 usernameText.Text = userDetails.Username;
                 flagsText.Text = userDetails.Flags ?? string.Empty;
@@ -83,21 +81,28 @@ namespace glFTPd_Commander.Views
                 ipRestrictionsList.ItemsSource = restrictions;
                 noRestrictionsText.Visibility = restrictions.Any() ? Visibility.Collapsed : Visibility.Visible;
 
-                var allGroups = await Task.Run(() => _ftp.GetGroups(_ftpClient));
-                var userGroups = userDetails.Groups;
+                // Get all groups (with connection safety)
+                var (allGroups, groupsUpdatedClient) = await FtpBase.ExecuteWithConnectionAsync(
+                    _ftpClient, _ftp!, c => Task.Run(() => (List<FTP.FtpGroup>?)_ftp!.GetGroups(c))
+                );
+                _ftpClient = groupsUpdatedClient;
 
                 var userGroupsNormalized = new HashSet<string>(
                 userDetails.Groups.Select(g => g.TrimStart('*', '+')), StringComparer.OrdinalIgnoreCase);
 
-                availableGroupsList.ItemsSource = allGroups
+                availableGroupsList.ItemsSource = allGroups?
                     .Where(g => !userGroupsNormalized.Contains(g.Group.TrimStart('*', '+')))
                     .Select(g => g.Group)
                     .OrderBy(g => g)
                     .ToList();
 
-                userGroupsList.ItemsSource = userDetails.Groups.OrderBy(g => g.TrimStart('*', '+')).ToList();
+                //userGroupsList.ItemsSource = userDetails.Groups.OrderBy(g => g.TrimStart('*', '+')).ToList();
+                userGroupsList.ItemsSource = userDetails.Groups
+                    .Select(g => g.StartsWith("*") ? "+" + g.Substring(1) : g) // Replace * with +
+                    .OrderBy(g => g.TrimStart('+'))
+                    .ToList();
 
-                var reply = await Task.Run(() => _ftp.ExecuteCommand($"SITE USER {_username}", _ftpClient));
+                var reply = await Task.Run(() => _ftp!.ExecuteCommand($"SITE USER {_username}", _ftpClient));
                 if (!string.IsNullOrEmpty(reply)) ParseDetailedUserInfo(reply);
             }
             catch (Exception ex)
@@ -327,12 +332,10 @@ namespace glFTPd_Commander.Views
             var added = newFlags.Except(_oldFlags ?? "");
             var removed = (_oldFlags ?? "").Except(newFlags);
 
-            if (_ftp == null || _ftpClient == null)
-            {
-                MessageBox.Show("FTP client not initialized.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
-            }
-            await _ftp.ConnectionLock.WaitAsync();
+            _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+                if (_ftpClient == null) return;
+
+            await _ftp!.ConnectionLock.WaitAsync();
             try
             {
                 foreach (var flag in added)
@@ -368,12 +371,10 @@ namespace glFTPd_Commander.Views
             string newVal = ParseRatioValue(ratiosText.Text.Trim());
             if (_oldRatios == newVal || string.IsNullOrEmpty(newVal)) return;
 
-            if (_ftp == null || _ftpClient == null)
-            {
-                MessageBox.Show("FTP client not initialized.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
-            }
-            await _ftp.ConnectionLock.WaitAsync();
+            _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+                if (_ftpClient == null) return;
+
+            await _ftp!.ConnectionLock.WaitAsync();
             try
             {
                 var result = await Task.Run(() => _ftp.ExecuteCommand($"SITE CHANGE {_username} ratio {newVal}", _ftpClient));
@@ -411,12 +412,10 @@ namespace glFTPd_Commander.Views
                 return;
             }
 
-            if (_ftp == null || _ftpClient == null)
-            {
-                MessageBox.Show("FTP client not initialized.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
-            }
-            await _ftp.ConnectionLock.WaitAsync();
+            _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+                if (_ftpClient == null) return;
+
+            await _ftp!.ConnectionLock.WaitAsync();
             try
             {
                 var result = await Task.Run(() => _ftp.ExecuteCommand($"SITE CHANGE {_username} expires {newVal}", _ftpClient));
@@ -440,12 +439,10 @@ namespace glFTPd_Commander.Views
             string newVal = idleTimeText.Text.Trim();
             if (_oldIdleTime == newVal || !int.TryParse(newVal, out int minutes)) return;
 
-            if (_ftp == null || _ftpClient == null)
-            {
-                MessageBox.Show("FTP client not initialized.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
-            }
-            await _ftp.ConnectionLock.WaitAsync();
+            _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+                if (_ftpClient == null) return;
+
+            await _ftp!.ConnectionLock.WaitAsync();
             try
             {
                 var result = await Task.Run(() => _ftp.ExecuteCommand($"SITE CHANGE {_username} idle_time {minutes}", _ftpClient));
@@ -479,12 +476,10 @@ namespace glFTPd_Commander.Views
                 return;
             }
 
-            if (_ftp == null || _ftpClient == null)
-            {
-                MessageBox.Show("FTP client not initialized.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
-            }
-            await _ftp.ConnectionLock.WaitAsync();
+            _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+                if (_ftpClient == null) return;
+
+            await _ftp!.ConnectionLock.WaitAsync();
             try
             {
                 var result = await Task.Run(() => _ftp.ExecuteCommand($"SITE RENUSER {_username} {newName}", _ftpClient));
@@ -513,12 +508,10 @@ namespace glFTPd_Commander.Views
             string newVal = maxLoginsText.Text.Trim();
             if (_oldMaxLogins == newVal || !int.TryParse(newVal, out _)) return;
 
-            if (_ftp == null || _ftpClient == null)
-            {
-                MessageBox.Show("FTP client not initialized.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
-            }
-            await _ftp.ConnectionLock.WaitAsync();
+            _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+                if (_ftpClient == null) return;
+
+            await _ftp!.ConnectionLock.WaitAsync();
             try
             {
                 var result = await Task.Run(() => _ftp.ExecuteCommand($"SITE CHANGE {_username} max_logins {newVal}", _ftpClient));
@@ -542,12 +535,10 @@ namespace glFTPd_Commander.Views
             string newVal = fromSameIpText.Text.Trim();
             if (_oldFromSameIp == newVal || !int.TryParse(newVal, out _)) return;
 
-            if (_ftp == null || _ftpClient == null)
-            {
-                MessageBox.Show("FTP client not initialized.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
-            }
-            await _ftp.ConnectionLock.WaitAsync();
+            _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+                if (_ftpClient == null) return;
+
+            await _ftp!.ConnectionLock.WaitAsync();
             try
             {
                 var result = await Task.Run(() => _ftp.ExecuteCommand($"SITE CHANGE {_username} same_ip {newVal}", _ftpClient));
@@ -571,12 +562,10 @@ namespace glFTPd_Commander.Views
             string newVal = taglineText.Text.Trim();
             if (_oldTagline == newVal) return;
 
-            if (_ftp == null || _ftpClient == null)
-            {
-                MessageBox.Show("FTP client not initialized.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
-            }
-            await _ftp.ConnectionLock.WaitAsync();
+            _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+                if (_ftpClient == null) return;
+
+            await _ftp!.ConnectionLock.WaitAsync();
             try
             {
                 var result = await Task.Run(() => _ftp.ExecuteCommand($"SITE CHANGE {_username} tagline {newVal}", _ftpClient));
@@ -600,12 +589,10 @@ namespace glFTPd_Commander.Views
             string newVal = userCommentText.Text.Trim();
             if (_oldUserComment == newVal) return;
 
-            if (_ftp == null || _ftpClient == null)
-            {
-                MessageBox.Show("FTP client not initialized.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
-            }
-            await _ftp.ConnectionLock.WaitAsync();
+            _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+                if (_ftpClient == null) return;
+
+            await _ftp!.ConnectionLock.WaitAsync();
             try
             {
                 var result = await Task.Run(() => _ftp.ExecuteCommand($"SITE CHANGE {_username} comment {newVal}", _ftpClient));
@@ -629,12 +616,10 @@ namespace glFTPd_Commander.Views
             string newVal = maxSimUploadsText.Text.Trim();
             if (_oldMaxSimUploads == newVal || !int.TryParse(newVal, out _)) return;
 
-            if (_ftp == null || _ftpClient == null)
-            {
-                MessageBox.Show("FTP client not initialized.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
-            }
-            await _ftp.ConnectionLock.WaitAsync();
+            _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+                if (_ftpClient == null) return;
+
+            await _ftp!.ConnectionLock.WaitAsync();
             try
             {
                 var result = await Task.Run(() => _ftp.ExecuteCommand($"SITE CHANGE {_username} max_sim_up {newVal}", _ftpClient));
@@ -658,12 +643,10 @@ namespace glFTPd_Commander.Views
             string newVal = maxSimDownloadsText.Text.Trim();
             if (_oldMaxSimDownloads == newVal || !int.TryParse(newVal, out _)) return;
             
-            if (_ftp == null || _ftpClient == null)
-            {
-                MessageBox.Show("FTP client not initialized.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
-            }
-            await _ftp.ConnectionLock.WaitAsync();
+            _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+                if (_ftpClient == null) return;
+
+            await _ftp!.ConnectionLock.WaitAsync();
             try
             {
                 var result = await Task.Run(() => _ftp.ExecuteCommand($"SITE CHANGE {_username} max_sim_dn {newVal}", _ftpClient));
@@ -686,27 +669,17 @@ namespace glFTPd_Commander.Views
         {
             if (availableGroupsList.SelectedItems.Count > 0)
             {
-                if (_ftp == null || _ftpClient == null)
-                {
-                    MessageBox.Show("FTP client not initialized.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                    return;
-                }
-                await _ftp.ConnectionLock.WaitAsync();
+                _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+                if (_ftpClient == null) return;
+        
+                await _ftp!.ConnectionLock.WaitAsync();
                 try
                 {
                     foreach (string group in availableGroupsList.SelectedItems)
                     {
-                        // Robust connection check inside the loop
-                        if (!FTP.EnsureConnected(ref _ftpClient, _ftp))
-                        {
-                            MessageBox.Show("Lost connection to the FTP server. Please reconnect.", "Connection Lost",
-                                MessageBoxButton.OK, MessageBoxImage.Error);
-                            return;
-                        }
-        
                         try
                         {
-                            string result = await Task.Run(() => _ftp.ExecuteCommand($"SITE CHGRP {_username} {group}", _ftpClient));
+                            string result = await Task.Run(() => _ftp!.ExecuteCommand($"SITE CHGRP {_username} {group}", _ftpClient));
                             if (result.Contains("Error"))
                             {
                                 MessageBox.Show($"Error adding group {group}: {result}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
@@ -719,80 +692,84 @@ namespace glFTPd_Commander.Views
                         }
                     }
         
-                    // Reload only once after all groups are processed
                     await LoadUserDetails();
                     GroupChanged?.Invoke();
                 }
                 finally
                 {
-                    _ftp.ConnectionLock.Release();
+                    _ftp!.ConnectionLock.Release();
                 }
             }
         }
 
-        
         private async void RemoveGroupButton_Click(object sender, RoutedEventArgs e)
         {
-            if (userGroupsList.SelectedItems.Count > 0)
+            if (userGroupsList.SelectedItems.Count == 0)
+                return;
+        
+            _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+            if (_ftpClient == null) return;
+        
+            await _ftp!.ConnectionLock.WaitAsync();
+            try
             {
-                if (_ftp == null || _ftpClient == null)
+                foreach (string group in userGroupsList.SelectedItems.Cast<string>().ToList())
                 {
-                    MessageBox.Show("FTP client not initialized.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                    return;
-                }
-                await _ftp.ConnectionLock.WaitAsync();
-                try
-                {
-                    foreach (string group in userGroupsList.SelectedItems)
+                    string groupName = group.TrimStart('+');
+                    string? error = null;
+        
+                    // If group is a group admin, remove admin status first
+                    if (group.StartsWith("+"))
                     {
-                        // Robust connection check inside the loop
-                        if (!FTP.EnsureConnected(ref _ftpClient, _ftp))
+                        string resultAdmin = await Task.Run(() => _ftp!.ExecuteCommand($"SITE CHGADMIN {_username} {groupName}", _ftpClient));
+                        if (resultAdmin.Contains("Error"))
                         {
-                            MessageBox.Show("Lost connection to the FTP server. Please reconnect.", "Connection Lost",
-                                MessageBoxButton.OK, MessageBoxImage.Error);
-                            return;
-                        }
-                        try
-                        {
-                            string result = await Task.Run(() => _ftp.ExecuteCommand($"SITE CHGRP {_username} {group}", _ftpClient));
-                            if (result.Contains("Error"))
-                            {
-                                MessageBox.Show($"Error removing group {group}: {result}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            Debug.WriteLine($"[UserInfoView] Exception while removing group {group}: {ex}");
-                            MessageBox.Show($"Exception while removing group {group}: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                            error = $"Error removing group admin status from group {groupName}: {resultAdmin}";
                         }
                     }
-                    
-                    // Reload only once after all groups are processed
-                    await LoadUserDetails();
-                    GroupChanged?.Invoke();
+        
+                    if (error == null)
+                    {
+                        string result = await Task.Run(() => _ftp!.ExecuteCommand($"SITE CHGRP {_username} {groupName}", _ftpClient));
+                        if (result.Contains("Error"))
+                        {
+                            error = $"Error removing group {groupName}: {result}";
+                        }
+                    }
+        
+                    if (error != null)
+                    {
+                        MessageBox.Show(error, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                        continue;
+                    }
                 }
-                catch (Exception ex)
-                {
-                    MessageBox.Show($"Error removing groups: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                }
-                finally
-                {
-                    _ftp.ConnectionLock.Release();
-                }
+        
+                // Reload only once after all groups are processed
+                await LoadUserDetails();
+                GroupChanged?.Invoke();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error removing groups: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                _ftp!.ConnectionLock.Release();
             }
         }
+
+
         
         private async void RemoveIpButton_Click(object sender, RoutedEventArgs e)
         {
             if (ipRestrictionsList.SelectedItem is KeyValuePair<string, string> selectedIp)
             {
                 string ipNumber = selectedIp.Key.Replace("IP", "");
-                if (_ftp == null || _ftpClient == null)
-                {
-                    MessageBox.Show("FTP client not initialized.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                    return;
-                }
-                await _ftp.ConnectionLock.WaitAsync();
+
+                _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+                    if (_ftpClient == null) return;
+
+                await _ftp!.ConnectionLock.WaitAsync();
                 try
                 {
                     string result = await Task.Run(() => _ftp.ExecuteDelIpCommand(_username, ipNumber, _ftpClient));
@@ -819,11 +796,9 @@ namespace glFTPd_Commander.Views
         
         private async void AddIpButton_Click(object sender, RoutedEventArgs e)
         {
-            if (_ftp == null || _ftpClient == null)
-            {
-                MessageBox.Show("FTP client not initialized.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
-            }
+            _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+                if (_ftpClient == null) return;
+
             var addIpWindow = new AddIpWindow
             {
                 Owner = Window.GetWindow(this),
@@ -833,7 +808,7 @@ namespace glFTPd_Commander.Views
             if (addIpWindow.ShowDialog() == true)
             {
                 string ipAddress = addIpWindow.IPAddress;
-                await _ftp.ConnectionLock.WaitAsync();
+                await _ftp!.ConnectionLock.WaitAsync();
                 try
                 {
                     string result = await Task.Run(() => _ftp.AddIpRestriction(_username, ipAddress, _ftpClient));
@@ -856,13 +831,10 @@ namespace glFTPd_Commander.Views
         
         private async void AddCreditsButton_Click(object sender, RoutedEventArgs e)
         {
-            if (_ftp == null || _ftpClient == null)
-            {
-                MessageBox.Show("FTP client not initialized.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
-            }
+            _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+                if (_ftpClient == null) return;
         
-            var window = new CreditAdjustWindow(_ftp, _ftpClient, _username, "GIVE")
+            var window = new CreditAdjustWindow(_ftp!, _ftpClient!, _username, "GIVE")
             {
                 Owner = Window.GetWindow(this),
                 WindowStartupLocation = WindowStartupLocation.CenterOwner
@@ -875,13 +847,10 @@ namespace glFTPd_Commander.Views
         
         private async void TakeCreditsButton_Click(object sender, RoutedEventArgs e)
         {
-            if (_ftp == null || _ftpClient == null)
-            {
-                MessageBox.Show("FTP client not initialized.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
-            }
+            _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+                if (_ftpClient == null) return;
         
-            var window = new CreditAdjustWindow(_ftp, _ftpClient, _username, "TAKE")
+            var window = new CreditAdjustWindow(_ftp!, _ftpClient!, _username, "TAKE")
             {
                 Owner = Window.GetWindow(this),
                 WindowStartupLocation = WindowStartupLocation.CenterOwner
@@ -894,12 +863,10 @@ namespace glFTPd_Commander.Views
 
         private async void userReAdd_Click(object sender, RoutedEventArgs e)
         {
-            if (_ftp == null || _ftpClient == null)
-            {
-                MessageBox.Show("FTP client not initialized.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
-            }
-            await _ftp.ConnectionLock.WaitAsync();
+            _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+                if (_ftpClient == null) return;
+
+            await _ftp!.ConnectionLock.WaitAsync();
             try
             {
                 string result = await Task.Run(() => _ftp.ExecuteCommand($"SITE READD {_username}", _ftpClient));
@@ -918,11 +885,8 @@ namespace glFTPd_Commander.Views
         
         private async void userRemove_Click(object sender, RoutedEventArgs e)
         {
-            if (_ftp == null || _ftpClient == null)
-            {
-                MessageBox.Show("FTP client not initialized.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
-            }
+            _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+                if (_ftpClient == null) return;
 
             if ((flagsText.Text ?? "").Contains("1"))
             {
@@ -936,7 +900,7 @@ namespace glFTPd_Commander.Views
                 return;
             }
 
-            await _ftp.ConnectionLock.WaitAsync();
+            await _ftp!.ConnectionLock.WaitAsync();
             try
             {
                 string result = await Task.Run(() => _ftp.DelUser(_username, _ftpClient));
@@ -955,12 +919,10 @@ namespace glFTPd_Commander.Views
         
         private async void userPurge_Click(object sender, RoutedEventArgs e)
         {
-            if (_ftp == null || _ftpClient == null)
-            {
-                MessageBox.Show("FTP client not initialized.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
-            }
-            await _ftp.ConnectionLock.WaitAsync();
+            _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+                if (_ftpClient == null) return;
+
+            await _ftp!.ConnectionLock.WaitAsync();
             try
             {
                 string result = await Task.Run(() => _ftp.PurgeUser(_username, _ftpClient));
@@ -982,13 +944,10 @@ namespace glFTPd_Commander.Views
             string newVal = timeLimitText.Text.Trim();
             if (_oldTimeLimit == newVal) return;
         
-            if (_ftp == null || _ftpClient == null)
-            {
-                MessageBox.Show("FTP client not initialized.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
-            }
+            _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+                if (_ftpClient == null) return;
         
-            await _ftp.ConnectionLock.WaitAsync();
+            await _ftp!.ConnectionLock.WaitAsync();
             try
             {
                 var result = await Task.Run(() =>
@@ -1015,13 +974,10 @@ namespace glFTPd_Commander.Views
             string newVal = timeframeText.Text.Trim();
             if (_oldTimeframe == newVal) return;
         
-            if (_ftp == null || _ftpClient == null)
-            {
-                MessageBox.Show("FTP client not initialized.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
-            }
+            _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+                if (_ftpClient == null) return;
         
-            await _ftp.ConnectionLock.WaitAsync();
+            await _ftp!.ConnectionLock.WaitAsync();
             try
             {
                 var result = await Task.Run(() =>
@@ -1045,13 +1001,10 @@ namespace glFTPd_Commander.Views
 
         private async void SetAllotmentButton_Click(object sender, RoutedEventArgs e)
         {
-            if (_ftp == null || _ftpClient == null)
-            {
-                MessageBox.Show("FTP client not initialized.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
-            }
+            _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+                if (_ftpClient == null) return;
         
-            var setAllotmentWindow = new SetAllotmentWindow(_ftp, _ftpClient, _username)
+            var setAllotmentWindow = new SetAllotmentWindow(_ftp!, _ftpClient!, _username)
             {
                 Owner = Window.GetWindow(this),
                 WindowStartupLocation = WindowStartupLocation.CenterOwner
@@ -1065,6 +1018,9 @@ namespace glFTPd_Commander.Views
 
         private async void SetMaxUploadSpeed_Click(object sender, RoutedEventArgs e)
         {
+            _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+                if (_ftpClient == null) return;
+
             var win = new SetSpeedWindow(_ftp!, _ftpClient!, _username, "max_ulspeed")
             {
                 Owner = Window.GetWindow(this),
@@ -1079,6 +1035,9 @@ namespace glFTPd_Commander.Views
         
         private async void SetMaxDownloadSpeed_Click(object sender, RoutedEventArgs e)
         {
+            _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+                if (_ftpClient == null) return;
+
             var win = new SetSpeedWindow(_ftp!, _ftpClient!, _username, "max_dlspeed")
             {
                 Owner = Window.GetWindow(this),

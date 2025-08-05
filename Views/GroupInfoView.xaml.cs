@@ -14,8 +14,8 @@ namespace glFTPd_Commander.Views
 {
     public partial class GroupInfoView : BaseUserControl, IUnselectable
     {
-        private FTP _ftp;
-        private FtpClient _ftpClient;
+        private FTP? _ftp;
+        private FtpClient? _ftpClient;
         private string _group;
         private readonly string _currentUser;
         private GroupInfo _originalInfo;
@@ -50,19 +50,14 @@ namespace glFTPd_Commander.Views
         {
             try
             {
-                // Synchronous connection check:
-                if (!FTP.EnsureConnected(ref _ftpClient, _ftp))
-                {
-                    MessageBox.Show("Lost connection to the FTP server. Please reconnect.", "Connection Lost",
-                        MessageBoxButton.OK, MessageBoxImage.Error);
-                    return;
-                }
-        
+                _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+                    if (_ftpClient == null) return;
+                
                 GroupNameTextBox.Text = _group;
         
-                var siteGrpTask = Task.Run(() => _ftp.ExecuteCommand($"SITE GRP {_group}", _ftpClient));
-                var siteGroupsTask = Task.Run(() => _ftp.ExecuteCommand("SITE GROUPS", _ftpClient));
-                var siteGinfoTask = Task.Run(() => _ftp.ExecuteCommand($"SITE GINFO {_group}", _ftpClient));
+                var siteGrpTask = Task.Run(() => _ftp!.ExecuteCommand($"SITE GRP {_group}", _ftpClient!));
+                var siteGroupsTask = Task.Run(() => _ftp!.ExecuteCommand("SITE GROUPS", _ftpClient!));
+                var siteGinfoTask = Task.Run(() => _ftp!.ExecuteCommand($"SITE GINFO {_group}", _ftpClient!));
         
                 await Task.WhenAll(siteGrpTask, siteGroupsTask, siteGinfoTask);
         
@@ -72,7 +67,7 @@ namespace glFTPd_Commander.Views
                 _originalInfo = ParseGroupInfo(siteGrpTask.Result);
                 UpdateUiFromGroupInfo(_originalInfo);
         
-                LoadUsersAndAdmins(siteGinfoTask.Result);
+                await LoadUsersAndAdmins(siteGinfoTask.Result);
         
                 var admins = GroupAdminComboBox.ItemsSource as IList<string>;
                 if (admins != null && admins.Count > 0)
@@ -103,15 +98,10 @@ namespace glFTPd_Commander.Views
             string newValue = control.Text.Trim();
             if (newValue == oldValue?.Trim()) return;  // ← prevent redundant command execution
 
-            // Synchronous connection check:
-            if (!FTP.EnsureConnected(ref _ftpClient, _ftp))
-            {
-                MessageBox.Show("Lost connection to the FTP server. Please reconnect.", "Connection Lost",
-                    MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
-            }
+            _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+                if (_ftpClient == null) return;
 
-            await _ftp.ConnectionLock.WaitAsync();
+            await _ftp!.ConnectionLock.WaitAsync();
             try
             {
                 string result = await Task.Run(() => _ftp.ExecuteCommand(command, _ftpClient));
@@ -143,9 +133,13 @@ namespace glFTPd_Commander.Views
 
         private async void GroupNameTextBox_LostFocus(object sender, RoutedEventArgs e)
         {
+            _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+                if (_ftpClient == null) return;
+
             string newVal = GroupNameTextBox.Text.Trim();
             if (_oldGroupName == newVal || string.IsNullOrWhiteSpace(newVal)) return;
-            await _ftp.ConnectionLock.WaitAsync();
+
+            await _ftp!.ConnectionLock.WaitAsync();
             try
             {
                 string result = await Task.Run(() => _ftp.ExecuteCommand($"SITE GRPREN {_group} {newVal}", _ftpClient));
@@ -186,15 +180,10 @@ namespace glFTPd_Commander.Views
 
         private async void AddButton_Click(object sender, RoutedEventArgs e)
         {
-            // Synchronous connection check:
-            if (!FTP.EnsureConnected(ref _ftpClient, _ftp))
-            {
-                MessageBox.Show("Lost connection to the FTP server. Please reconnect.", "Connection Lost",
-                    MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
-            }
+            _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+                if (_ftpClient == null) return;
         
-            await _ftp.ConnectionLock.WaitAsync();
+            await _ftp!.ConnectionLock.WaitAsync();
             try
             {
                 foreach (var user in AvailableUsersComboBox.SelectedItems.Cast<string>().ToList())
@@ -208,7 +197,6 @@ namespace glFTPd_Commander.Views
                     }
                 }
         
-                // After all changes, just reload from server (no Remove/Add needed):
                 await ReloadGroupDetails();
                 GroupChanged?.Invoke();
             }
@@ -217,18 +205,14 @@ namespace glFTPd_Commander.Views
                 _ftp.ConnectionLock.Release();
             }
         }
+
         
         private async void RemoveButton_Click(object sender, RoutedEventArgs e)
         {
-            // Synchronous connection check:
-            if (!FTP.EnsureConnected(ref _ftpClient, _ftp))
-            {
-                MessageBox.Show("Lost connection to the FTP server. Please reconnect.", "Connection Lost",
-                    MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
-            }
+            _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+                if (_ftpClient == null) return;
         
-            await _ftp.ConnectionLock.WaitAsync();
+            await _ftp!.ConnectionLock.WaitAsync();
             try
             {
                 foreach (var user in GroupAdminComboBox.SelectedItems.Cast<string>().ToList())
@@ -237,12 +221,11 @@ namespace glFTPd_Commander.Views
                     string result = await Task.Run(() => _ftp.ExecuteCommand($"SITE CHGADMIN {cleanUser} {_group}", _ftpClient));
                     if (result.Contains("Error"))
                     {
-                        MessageBox.Show($"Error removing user from group: {result}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                        MessageBox.Show($"Error removing user to group: {result}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                         continue;
                     }
                 }
         
-                // Just reload lists after all operations, like UserInfoView does:
                 await ReloadGroupDetails();
                 GroupChanged?.Invoke();
             }
@@ -252,28 +235,43 @@ namespace glFTPd_Commander.Views
             }
         }
 
-        private void LoadUsersAndAdmins(string ginfoResponse)
+        private async Task LoadUsersAndAdmins(string ginfoResponse)
         {
             try
             {
-                var (allUsers, admins) = ParseAllUserDataFromGinfo(ginfoResponse);
+                _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+                    if (_ftpClient == null) return;
+                // Get all users (raw) in the group from GINFO
+                var allUsers = ParseAllUsersFromGinfo(ginfoResponse);
         
-                // Assign sorted lists directly to ItemsSource, no in-memory fields
-                AvailableUsersComboBox.ItemsSource = allUsers
-                    .Except(admins)
-                    .OrderBy(u => u.TrimStart('*', '+'), StringComparer.OrdinalIgnoreCase)
-                    .ToList();
+                var groupAdmins = new List<string>();
+                var availableUsers = new List<string>();
         
-                GroupAdminComboBox.ItemsSource = admins
-                    .OrderBy(u => u.TrimStart('*', '+'), StringComparer.OrdinalIgnoreCase)
-                    .ToList();
+                foreach (var user in allUsers)
+                {
+                    var userDetails = await Task.Run(() => _ftp!.GetUserDetails(user, _ftpClient!));
+        
+                    // userDetails.Groups: List<string> like [*Group1, +Group2, Group3]
+                    bool isAdmin = userDetails?.Groups?.Any(g =>
+                        g.Equals($"*{_group}", StringComparison.OrdinalIgnoreCase) ||
+                        g.Equals($"+{_group}", StringComparison.OrdinalIgnoreCase)
+                    ) == true;
+        
+                    if (isAdmin)
+                        groupAdmins.Add(user);
+                    else
+                        availableUsers.Add(user);
+                }
+        
+                AvailableUsersComboBox.ItemsSource = availableUsers.OrderBy(u => u).ToList();
+                GroupAdminComboBox.ItemsSource = groupAdmins.OrderBy(u => u).ToList();
+      
             }
             catch (Exception ex)
             {
                 MessageBox.Show($"Error loading users: {ex.Message}", "Error");
             }
         }
-
 
         private GroupInfo ParseGroupInfo(string response)
         {
@@ -370,31 +368,56 @@ namespace glFTPd_Commander.Views
                 var parts = line.Split('|');
                 if (parts.Length < 2) continue;
         
-                var username = parts[1].Trim();
+                var usernameRaw = parts[1].Trim();
         
-                if (string.IsNullOrWhiteSpace(username))
+                if (string.IsNullOrWhiteSpace(usernameRaw))
                     continue;
         
-                if (username.StartsWith("+"))
-                {
-                    var cleanName = username.Substring(1).Trim();
-                    if (!string.IsNullOrWhiteSpace(cleanName))
-                    {
-                        admins.Add(cleanName);
-                        allUsers.Add(cleanName);
-                    }
-                }
-                else
-                {
-                    allUsers.Add(username);
-                }
+                // Always get clean name (no prefix)
+                var cleanName = usernameRaw.TrimStart('*', '+').Trim();
+        
+                allUsers.Add(cleanName);
+        
+                // Add to admins if it has * or +
+                if (usernameRaw.StartsWith("+") || usernameRaw.StartsWith("*"))
+                    admins.Add(cleanName);
             }
         
-            return (allUsers, admins);
+            return (allUsers.Distinct().ToList(), admins.Distinct().ToList());
         }
 
-       private async void groupRemoveButton_Click(object sender, RoutedEventArgs e)
+        private List<string> ParseAllUsersFromGinfo(string response)
         {
+            var users = new List<string>();
+        
+            var lines = response.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
+        
+            foreach (var line in lines)
+            {
+                if (!line.StartsWith("200- |") || line.Contains("Username") || line.Contains("--------") ||
+                    line.Contains("* denotes") || line.Contains("Tot ") || line.Contains("Total Free"))
+                    continue;
+        
+                var parts = line.Split('|');
+                if (parts.Length < 2) continue;
+        
+                var usernameRaw = parts[1].Trim();
+                if (string.IsNullOrWhiteSpace(usernameRaw)) continue;
+        
+                var cleanName = usernameRaw.TrimStart('*', '+').Trim();
+                users.Add(cleanName);
+            }
+        
+            return users.Distinct().ToList();
+        }
+
+
+
+        private async void groupRemoveButton_Click(object sender, RoutedEventArgs e)
+        {
+            _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+                if (_ftpClient == null) return;
+
             var confirm = MessageBox.Show(
                 $"Are you sure you want to remove group '{_group}' and unassign all its users first?",
                 "Confirm Group Deletion",
@@ -404,15 +427,7 @@ namespace glFTPd_Commander.Views
             if (confirm != MessageBoxResult.Yes)
                 return;
 
-            // Synchronous connection check:
-            if (!FTP.EnsureConnected(ref _ftpClient, _ftp))
-            {
-                MessageBox.Show("Lost connection to the FTP server. Please reconnect.", "Connection Lost",
-                    MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
-            }
-        
-            await _ftp.ConnectionLock.WaitAsync();
+            await _ftp!.ConnectionLock.WaitAsync();
             try
             {
                 // Step 1: Initial GINFO and parse
@@ -464,9 +479,12 @@ namespace glFTPd_Commander.Views
             }
         }
 
-        private void SetMaxAllotButton_Click(object sender, RoutedEventArgs e)
+        private async void SetMaxAllotButton_Click(object sender, RoutedEventArgs e)
         {
-            var win = new SetMaxAllotWindow(_ftp, _ftpClient, _group)
+            _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+                if (_ftpClient == null) return;
+
+            var win = new SetMaxAllotWindow(_ftp!, _ftpClient!, _group)
             {
                 Owner = Window.GetWindow(this),
                 WindowStartupLocation = WindowStartupLocation.CenterOwner
@@ -506,5 +524,12 @@ namespace glFTPd_Commander.Views
         public string AllotmentSlotsLeft { get; set; } = string.Empty;
         public string MaxAllotmentSize { get; set; } = string.Empty;
         public string MaxSimultaneousLogins { get; set; } = string.Empty;
+    }
+
+    public class GroupMemberInfo
+    {
+        public string Name { get; set; } = "";
+        public bool IsSiteOp { get; set; }
+        public bool IsGroupAdmin { get; set; }
     }
 }

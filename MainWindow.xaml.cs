@@ -259,35 +259,43 @@ namespace glFTPd_Commander
         {
             if (_isLoading) return;
             _isLoading = true;
-
-            await (_ftp?.ConnectionLock?.WaitAsync() ?? System.Threading.Tasks.Task.CompletedTask);
-
+        
+            await (_ftp?.ConnectionLock?.WaitAsync() ?? Task.CompletedTask);
+        
             try
             {
-                if (_ftp == null || _ftpClient == null)
+                if (_ftp == null)
                 {
                     MessageBox.Show("FTP connection is not initialized.", "Error",
                         MessageBoxButton.OK, MessageBoxImage.Error);
                     return;
                 }
+        
+                var usersTask = FtpBase.ExecuteWithConnectionAsync(
+                    _ftpClient, _ftp, c => Task.Run(() => (List<FTP.FtpUser>?)_ftp.GetUsers(c)));
+                
+                var groupsTask = FtpBase.ExecuteWithConnectionAsync(
+                    _ftpClient, _ftp, c => Task.Run(() => (List<FTP.FtpGroup>?)_ftp.GetGroups(c)));
+                
+                var deletedUsersTask = FtpBase.ExecuteWithConnectionAsync(
+                    _ftpClient, _ftp, c => Task.Run(() => (List<FTP.FtpUser>?)_ftp.GetDeletedUsers(c)));
 
-                // Synchronous connection check:
-                if (!FTP.EnsureConnected(ref _ftpClient, _ftp))
+        
+                await Task.WhenAll(usersTask, groupsTask, deletedUsersTask);
+        
+                // Keep the newest working client from any successful call
+                _ftpClient = usersTask.Result.Client ?? groupsTask.Result.Client ?? deletedUsersTask.Result.Client;
+        
+                if (_ftpClient == null)
                 {
                     MessageBox.Show("Lost connection to the FTP server. Please reconnect.", "Connection Lost",
                         MessageBoxButton.OK, MessageBoxImage.Error);
                     return;
                 }
-
-                var usersTask = System.Threading.Tasks.Task.Run(() => _ftp.GetUsers(_ftpClient));
-                var groupsTask = System.Threading.Tasks.Task.Run(() => _ftp.GetGroups(_ftpClient));
-                var deletedUsersTask = System.Threading.Tasks.Task.Run(() => _ftp.GetDeletedUsers(_ftpClient));
-
-                await System.Threading.Tasks.Task.WhenAll(usersTask, groupsTask, deletedUsersTask);
-
-                var users = usersTask.Result;
-                var groups = groupsTask.Result;
-                var deletedUsers = deletedUsersTask.Result;
+        
+                var users = usersTask.Result.Result ?? new List<FtpUser>();
+                var groups = groupsTask.Result.Result ?? new List<FtpGroup>();
+                var deletedUsers = deletedUsersTask.Result.Result ?? new List<FtpUser>();
 
                 var root = new FtpTreeItem { Name = $"FTP Server: {_ftp.Host}", IsRoot = true };
 
@@ -572,89 +580,34 @@ namespace glFTPd_Commander
             helpWindow.ShowDialog();
         }
 
-        private async void userAdd_Click(object sender, RoutedEventArgs e)
+       private void userAdd_Click(object sender, RoutedEventArgs e)
         {
             var addUserWindow = new AddUserWindow(_ftp!, _ftpClient!)
             {
                 Owner = this,
                 WindowStartupLocation = WindowStartupLocation.CenterOwner
             };
-
-            if (addUserWindow.ShowDialog() == true)
+        
+            if (addUserWindow.ShowDialog() == true && addUserWindow.AddSuccessful)
             {
-                string username = addUserWindow.Username;
-                string password = addUserWindow.Password;
-                string group = addUserWindow.SelectedGroup;
-                string ipAddress = addUserWindow.IPAddress;
-
-                if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password) || string.IsNullOrWhiteSpace(group) || string.IsNullOrWhiteSpace(ipAddress))
-                {
-                    MessageBox.Show("Username, password, group and ip are required", "Error",
-                        MessageBoxButton.OK, MessageBoxImage.Error);
-                    return;
-                }
-
-                try
-                {
-                    if (_ftp == null)
-                    {
-                        MessageBox.Show("FTP connection not initialized.", "Error",
-                                        MessageBoxButton.OK, MessageBoxImage.Error);
-                        return;
-                    }
-                    string result = await System.Threading.Tasks.Task.Run(() => _ftp.AddUser(_ftpClient, username, password, group, ipAddress));
-
-                    LoadFtpData();
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show($"Error adding user: {ex.Message}", "Error",
-                        MessageBoxButton.OK, MessageBoxImage.Error);
-                }
+                LoadFtpData();
             }
         }
-
-        private async void groupAdd_Click(object sender, RoutedEventArgs e)
+        
+        private void groupAdd_Click(object sender, RoutedEventArgs e)
         {
-            var addGroupWindow = new AddGroupWindow
+            var addGroupWindow = new AddGroupWindow(_ftp!, _ftpClient!)
             {
                 Owner = this,
                 WindowStartupLocation = WindowStartupLocation.CenterOwner
             };
-
-            if (addGroupWindow.ShowDialog() == true)
+        
+            if (addGroupWindow.ShowDialog() == true && addGroupWindow.AddSuccessful)
             {
-                string group = addGroupWindow.GroupName;
-                string description = addGroupWindow.Description;
-
-                if (string.IsNullOrWhiteSpace(group) || string.IsNullOrWhiteSpace(description))
-                {
-                    MessageBox.Show("Group and Description are required", "Error",
-                        MessageBoxButton.OK, MessageBoxImage.Error);
-                    return;
-                }
-
-                try
-                {
-                    if (_ftp == null)
-                    {
-                        MessageBox.Show("FTP connection not initialized.", "Error",
-                                        MessageBoxButton.OK, MessageBoxImage.Error);
-                        return;
-                    }
-                    string result = await System.Threading.Tasks.Task.Run(() => _ftp.AddGroup(_ftpClient, group, description));
-
-                    LoadFtpData();
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show($"Error adding group: {ex.Message}", "Error",
-                        MessageBoxButton.OK, MessageBoxImage.Error);
-                }
+                LoadFtpData();
             }
         }
 
-        // Helper: Update observable collection in place (recursive, for trees)
         private void UpdateTree(ObservableCollection<FtpTreeItem> target, List<FtpTreeItem> source)
         {
             // Remove items not in source
@@ -751,41 +704,42 @@ namespace glFTPd_Commander
         {
             string command = CommandInputComboBox.Text.Trim();
             if (string.IsNullOrWhiteSpace(command)) return;
-            
+        
             // Store in history if unique
             if (!_commandHistory.Contains(command))
             {
                 _commandHistory.Insert(0, command);
                 if (_commandHistory.Count > 10)
                     _commandHistory.RemoveAt(0);
-            
-                // Update ComboBox items
+        
                 CommandInputComboBox.ItemsSource = null;
                 CommandInputComboBox.ItemsSource = _commandHistory;
             }
-            
+        
             CommandInputComboBox.Text = string.Empty;
-
-            if (_ftp == null || _ftpClient == null || !_ftpClient.IsConnected)
+        
+            if (_ftp == null)
             {
-                MessageBox.Show("You must be connected to an FTP server.", "Not Connected",
-                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show("FTP connection is not initialized.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
         
             CommandOutputTextBox.AppendText($"> {command}\n");
-
+        
             await _ftp.ConnectionLock.WaitAsync();
             try
             {
-                string result = await Task.Run(() => _ftp.ExecuteCommand(command, _ftpClient));
+                var (result, updatedClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync(command, _ftpClient, _ftp);
+                _ftpClient = updatedClient;
+        
+                if (_ftpClient == null)
+                {
+                    MessageBox.Show("Lost connection to the FTP server. Please reconnect.", "Connection Lost",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+        
                 CommandOutputTextBox.AppendText(result + "\n");
-                //Debug.WriteLine($"[CustomCommand] Executed: {command} → {result}");
-            }
-            catch (Exception ex)
-            {
-                CommandOutputTextBox.AppendText($"[ERROR] {ex.Message}\n");
-                Debug.WriteLine($"[CustomCommand] Error: {ex}");
             }
             finally
             {
@@ -833,7 +787,7 @@ namespace glFTPd_Commander
             }
         }
 
-        private void AttemptConnection(FtpConnection conn)
+        private async void AttemptConnection(FtpConnection conn)
         {
             try
             {
@@ -868,8 +822,12 @@ namespace glFTPd_Commander
                     return;
                 }
         
-                _ftpClient = _ftp.CreateClient();
-                _ftpClient.Connect();
+                _ftpClient = await FtpBase.EnsureConnectedAsync(_ftpClient, _ftp);
+                if (_ftpClient == null)
+                {
+                    MessageBox.Show("Failed to connect to FTP server.", "Connection Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
                 LoadFtpData();
         
                 baseTitle = $"glFTPd Commander v{Version} by {Author} - Connected to {conn.Name}";
@@ -893,7 +851,6 @@ namespace glFTPd_Commander
                 MessageBox.Show($"Error: {ex.Message}", "Connection Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
-
 
         public void ForceDisconnect(string reason)
         {
@@ -929,7 +886,7 @@ namespace glFTPd_Commander
             }
             else
             {
-                if (_ftp == null || _ftpClient == null || !_ftpClient.IsConnected)
+                if (_ftp == null)
                 {
                     MessageBox.Show("You must be connected to an FTP server.", "Not Connected", MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
@@ -945,7 +902,14 @@ namespace glFTPd_Commander
                 await _ftp.ConnectionLock.WaitAsync();
                 try
                 {
-                    string result = await System.Threading.Tasks.Task.Run(() => _ftp.ExecuteCommand(slot.Command, _ftpClient));
+                    var (result, updatedClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync(slot.Command, _ftpClient, _ftp);
+                    _ftpClient = updatedClient;
+                    if (_ftpClient == null)
+                    {
+                        MessageBox.Show("Lost connection to the FTP server. Please reconnect.", "Connection Lost",
+                            MessageBoxButton.OK, MessageBoxImage.Error);
+                        return;
+                    }
                     CommandOutputTextBox.AppendText(result + "\n");
                 }
                 catch (Exception ex)

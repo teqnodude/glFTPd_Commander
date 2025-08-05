@@ -404,50 +404,34 @@ namespace glFTPd_Commander.Services
             return users;
         }
 
-        public string AddUser(FtpClient? client, string username, string password, string group, string ipAddress)
+        public async Task<string> AddUser(
+            FtpClient? client, FTP config, string username, string password, string group, string ipAddress)
         {
-            bool shouldDispose = client == null;
-            
-            try
-            {
-                client ??= CreateClient();
-                if (!client.IsConnected) client.Connect();
-
-                string command = $"SITE GADDUSER {group} {username} {password} {ipAddress}";
-                var reply = client.Execute(command);
-                return reply.Message;
-            }
-            catch (Exception ex)
-            {
-                return $"Error: {ex.Message}";
-            }
-            finally
-            {
-                if (shouldDispose) client?.Dispose();
-            }
+            string command = $"SITE GADDUSER {group} {username} {password} {ipAddress}";
+            var (result, updatedClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync(command, client, config);
+        
+            if (updatedClient == null)
+                return "Error: Lost connection to FTP server.";
+        
+            // You may want to further inspect 'result' for error messages from the server
+            if (string.IsNullOrWhiteSpace(result) || result.StartsWith("Error", StringComparison.OrdinalIgnoreCase))
+                return result ?? "Unknown error";
+        
+            return result;
         }
 
-        public string AddGroup(FtpClient? client, string group, string description)
+        public async Task<string> AddGroup(FtpClient? client, FTP config, string group, string description)
         {
-            bool shouldDispose = client == null;
-            
-            try
-            {
-                client ??= CreateClient();
-                if (!client.IsConnected) client.Connect();
-
-                string command = $"SITE GRPADD {group} {description}";
-                var reply = client.Execute(command);
-                return reply.Message;
-            }
-            catch (Exception ex)
-            {
-                return $"Error: {ex.Message}";
-            }
-            finally
-            {
-                if (shouldDispose) client?.Dispose();
-            }
+            string command = $"SITE GRPADD {group} {description}";
+            var (result, updatedClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync(command, client, config);
+        
+            if (updatedClient == null)
+                return "Error: Lost connection to FTP server.";
+        
+            if (string.IsNullOrWhiteSpace(result) || result.StartsWith("Error", StringComparison.OrdinalIgnoreCase))
+                return result ?? "Unknown error";
+        
+            return result;
         }
 
         public List<FtpUser> GetDeletedUsers(FtpClient? client = null)
@@ -703,6 +687,24 @@ namespace glFTPd_Commander.Services
                 }
             }
         }
+
+        public static async Task<FtpClient?> EnsureConnectedWithUiAsync(FTP? ftp, FtpClient? client)
+        {
+            if (ftp == null)
+            {
+                MessageBox.Show("FTP client not initialized.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                return null;
+            }
+        
+            client = await FtpBase.EnsureConnectedAsync(client, ftp);
+            if (client == null)
+            {
+                MessageBox.Show("Failed to connect to FTP server.", "Connection Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                return null;
+            }
+            return client;
+        }
+
 
         private void ShowError(string title, Exception ex)
         {
