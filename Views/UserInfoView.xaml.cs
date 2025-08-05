@@ -86,13 +86,16 @@ namespace glFTPd_Commander.Views
                 var allGroups = await Task.Run(() => _ftp.GetGroups(_ftpClient));
                 var userGroups = userDetails.Groups;
 
+                var userGroupsNormalized = new HashSet<string>(
+                userDetails.Groups.Select(g => g.TrimStart('*', '+')), StringComparer.OrdinalIgnoreCase);
+
                 availableGroupsList.ItemsSource = allGroups
-                    .Where(g => !userGroups.Contains(g.Group))
+                    .Where(g => !userGroupsNormalized.Contains(g.Group.TrimStart('*', '+')))
                     .Select(g => g.Group)
                     .OrderBy(g => g)
                     .ToList();
 
-                userGroupsList.ItemsSource = userGroups.OrderBy(g => g).ToList();
+                userGroupsList.ItemsSource = userDetails.Groups.OrderBy(g => g.TrimStart('*', '+')).ToList();
 
                 var reply = await Task.Run(() => _ftp.ExecuteCommand($"SITE USER {_username}", _ftpClient));
                 if (!string.IsNullOrEmpty(reply)) ParseDetailedUserInfo(reply);
