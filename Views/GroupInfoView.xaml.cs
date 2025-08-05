@@ -21,11 +21,7 @@ namespace glFTPd_Commander.Views
         private GroupInfo _originalInfo;
         private string _originalGroupAdmin = string.Empty;
         private string _originalDescription = string.Empty;
-
         private string? _oldGroupName, _oldDescription, _oldSlots, _oldLeech, _oldAllot, _oldMaxLogins, _oldComment;
-
-        private ObservableCollection<string> _availableUsers = new();
-        private ObservableCollection<string> _groupAdmins = new();
 
         public event Action? GroupChanged;
         public Action? RequestClose;
@@ -40,9 +36,6 @@ namespace glFTPd_Commander.Views
             _group = group;
             _currentUser = currentUser;
             _originalInfo = new GroupInfo();
-
-            AvailableUsersComboBox.ItemsSource = _availableUsers;
-            GroupAdminComboBox.ItemsSource = _groupAdmins;
 
             Loaded += GroupInfoView_Loaded;
             Loaded += (s, e) => GroupNameTextBox.Focus();
@@ -81,9 +74,14 @@ namespace glFTPd_Commander.Views
         
                 LoadUsersAndAdmins(siteGinfoTask.Result);
         
-                if (_groupAdmins.Count > 0)
+                var admins = GroupAdminComboBox.ItemsSource as IList<string>;
+                if (admins != null && admins.Count > 0)
                 {
-                    _originalGroupAdmin = _groupAdmins[0];
+                    _originalGroupAdmin = admins[0];
+                }
+                else
+                {
+                    _originalGroupAdmin = string.Empty;
                 }
         
                 _oldGroupName = GroupNameTextBox.Text;
@@ -195,37 +193,30 @@ namespace glFTPd_Commander.Views
                     MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
-
+        
             await _ftp.ConnectionLock.WaitAsync();
             try
             {
                 foreach (var user in AvailableUsersComboBox.SelectedItems.Cast<string>().ToList())
                 {
-                    try
+                    string cleanUser = user.TrimStart('*', '+');
+                    string result = await Task.Run(() => _ftp.ExecuteCommand($"SITE CHGADMIN {cleanUser} {_group}", _ftpClient));
+                    if (result.Contains("Error"))
                     {
-                        string result = await Task.Run(() => _ftp.ExecuteCommand($"SITE CHGADMIN {user} {_group}", _ftpClient));
-                        if (result.Contains("Error"))
-                        {
-                            MessageBox.Show($"Error adding user to group: {result}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                            continue;
-                        }
-        
-                        _availableUsers.Remove(user);
-                        _groupAdmins.Add(user);
-                        GroupChanged?.Invoke();
-                    }
-                    catch (Exception ex)
-                    {
-                        MessageBox.Show($"Exception adding user to group: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                        MessageBox.Show($"Error adding user to group: {result}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                        continue;
                     }
                 }
+        
+                // After all changes, just reload from server (no Remove/Add needed):
+                await ReloadGroupDetails();
+                GroupChanged?.Invoke();
             }
             finally
             {
                 _ftp.ConnectionLock.Release();
             }
         }
-
         
         private async void RemoveButton_Click(object sender, RoutedEventArgs e)
         {
@@ -236,30 +227,24 @@ namespace glFTPd_Commander.Views
                     MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
-
+        
             await _ftp.ConnectionLock.WaitAsync();
             try
             {
                 foreach (var user in GroupAdminComboBox.SelectedItems.Cast<string>().ToList())
                 {
-                    try
+                    string cleanUser = user.TrimStart('*', '+');
+                    string result = await Task.Run(() => _ftp.ExecuteCommand($"SITE CHGADMIN {cleanUser} {_group}", _ftpClient));
+                    if (result.Contains("Error"))
                     {
-                        string result = await Task.Run(() => _ftp.ExecuteCommand($"SITE CHGADMIN {user} {_group}", _ftpClient));
-                        if (result.Contains("Error"))
-                        {
-                            MessageBox.Show($"Error removing user from group: {result}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                            continue;
-                        }
-        
-                        _groupAdmins.Remove(user);
-                        _availableUsers.Add(user);
-                        GroupChanged?.Invoke();
-                    }
-                    catch (Exception ex)
-                    {
-                        MessageBox.Show($"Exception removing user from group: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                        MessageBox.Show($"Error removing user from group: {result}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                        continue;
                     }
                 }
+        
+                // Just reload lists after all operations, like UserInfoView does:
+                await ReloadGroupDetails();
+                GroupChanged?.Invoke();
             }
             finally
             {
@@ -267,31 +252,28 @@ namespace glFTPd_Commander.Views
             }
         }
 
-
         private void LoadUsersAndAdmins(string ginfoResponse)
         {
             try
             {
-                _availableUsers.Clear();
-                _groupAdmins.Clear();
-
                 var (allUsers, admins) = ParseAllUserDataFromGinfo(ginfoResponse);
-
-                foreach (var user in allUsers.Except(admins).OrderBy(u => u))
-                {
-                    _availableUsers.Add(user);
-                }
-
-                foreach (var admin in admins.OrderBy(u => u))
-                {
-                    _groupAdmins.Add(admin);
-                }
+        
+                // Assign sorted lists directly to ItemsSource, no in-memory fields
+                AvailableUsersComboBox.ItemsSource = allUsers
+                    .Except(admins)
+                    .OrderBy(u => u.TrimStart('*', '+'), StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+        
+                GroupAdminComboBox.ItemsSource = admins
+                    .OrderBy(u => u.TrimStart('*', '+'), StringComparer.OrdinalIgnoreCase)
+                    .ToList();
             }
             catch (Exception ex)
             {
                 MessageBox.Show($"Error loading users: {ex.Message}", "Error");
             }
         }
+
 
         private GroupInfo ParseGroupInfo(string response)
         {
