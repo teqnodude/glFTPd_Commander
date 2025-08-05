@@ -30,13 +30,18 @@
 
   <ItemGroup>
     <None Remove="App.config" />
+    <None Remove="Resources\Icons\activeusers.png" />
     <None Remove="Resources\Icons\deleted.png" />
+    <None Remove="Resources\Icons\deletedusers.png" />
     <None Remove="Resources\Icons\group.png" />
     <None Remove="Resources\Icons\groupadmin.png" />
+    <None Remove="Resources\Icons\groups.png" />
     <None Remove="Resources\Icons\logo.ico" />
     <None Remove="Resources\Icons\server.png" />
     <None Remove="Resources\Icons\siteop.png" />
+    <None Remove="Resources\Icons\unknown.png" />
     <None Remove="Resources\Icons\user.png" />
+    <None Remove="Resources\Icons\users.png" />
   </ItemGroup>
 
   <ItemGroup>
@@ -45,13 +50,18 @@
 
   <ItemGroup>
     <Resource Include="App.config" />
+    <Resource Include="Resources\Icons\activeusers.png" />
     <Resource Include="Resources\Icons\deleted.png" />
+    <Resource Include="Resources\Icons\deletedusers.png" />
     <Resource Include="Resources\Icons\group.png" />
     <Resource Include="Resources\Icons\groupadmin.png" />
+    <Resource Include="Resources\Icons\groups.png" />
     <Resource Include="Resources\Icons\logo.ico" />
     <Resource Include="Resources\Icons\server.png" />
     <Resource Include="Resources\Icons\siteop.png" />
+    <Resource Include="Resources\Icons\unknown.png" />
     <Resource Include="Resources\Icons\user.png" />
+    <Resource Include="Resources\Icons\users.png" />
   </ItemGroup>
 
   <ItemGroup>

@@ -515,117 +515,6 @@ namespace glFTPd_Commander.FTP
             }
         }
 
-        public string UpdateUserFlags(string username, string flag, bool addFlag, FtpClient? client = null)
-        {
-            bool shouldDispose = client == null;
-            
-            try
-            {
-                client ??= CreateClient();
-                if (!client.IsConnected) client.Connect();
-
-                string operation = addFlag ? "+" : "-";
-                var reply = client.Execute($"SITE CHANGE {username} flags {operation}{flag}");
-                return reply.Message;
-            }
-            catch (Exception ex)
-            {
-                return $"Error: {ex.Message}";
-            }
-            finally
-            {
-                if (shouldDispose) client?.Dispose();
-            }
-        }
-
-        public string ExecuteDelIpCommand(string username, string ipNumber, FtpClient? client = null)
-        {
-            bool shouldDispose = client == null;
-            
-            try
-            {
-                client ??= CreateClient();
-                if (!client.IsConnected) client.Connect();
-
-                var reply = client.Execute($"SITE DELIP {username} {ipNumber}");
-                return reply.Message;
-            }
-            catch (Exception ex)
-            {
-                return $"Error: {ex.Message}";
-            }
-            finally
-            {
-                if (shouldDispose) client?.Dispose();
-            }
-        }
-
-        public string AddIpRestriction(string username, string ipAddress, FtpClient? client = null)
-        {
-            bool shouldDispose = client == null;
-            
-            try
-            {
-                client ??= CreateClient();
-                if (!client.IsConnected) client.Connect();
-
-                var reply = client.Execute($"SITE ADDIP {username} {ipAddress}");
-                return reply.Message;
-            }
-            catch (Exception ex)
-            {
-                return $"Error: {ex.Message}";
-            }
-            finally
-            {
-                if (shouldDispose) client?.Dispose();
-            }
-        }
-
-        public string DelUser(string username, FtpClient? client = null)
-        {
-            bool shouldDispose = client == null;
-            
-            try
-            {
-                client ??= CreateClient();
-                if (!client.IsConnected) client.Connect();
-
-                var reply = client.Execute($"SITE DELUSER {username}");
-                return reply.Message;
-            }
-            catch (Exception ex)
-            {
-                return $"Error: {ex.Message}";
-            }
-            finally
-            {
-                if (shouldDispose) client?.Dispose();
-            }
-        }
-
-        public string PurgeUser(string username, FtpClient? client = null)
-        {
-            bool shouldDispose = client == null;
-            
-            try
-            {
-                client ??= CreateClient();
-                if (!client.IsConnected) client.Connect();
-
-                var reply = client.Execute($"SITE PURGE {username}");
-                return reply.Message;
-            }
-            catch (Exception ex)
-            {
-                return $"Error: {ex.Message}";
-            }
-            finally
-            {
-                if (shouldDispose) client?.Dispose();
-            }
-        }
-
         private static void ProcessIpLine(string line, FtpUserDetails details)
         {
             var ipFields = line.Split(["IP"], StringSplitOptions.RemoveEmptyEntries)
@@ -652,18 +541,10 @@ namespace glFTPd_Commander.FTP
         public static async Task<FtpClient?> EnsureConnectedWithUiAsync(GlFtpdClient? ftp, FtpClient? client)
         {
             if (ftp == null)
-            {
-                MessageBox.Show("FTP client not initialized.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 return null;
-            }
-        
+
             client = await FtpBase.EnsureConnectedAsync(client, ftp);
-            if (client == null)
-            {
-                MessageBox.Show("Failed to connect to FTP server.", "Connection Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                return null;
-            }
-            return client;
+            return (client?.IsConnected == true) ? client : null;
         }
 
 

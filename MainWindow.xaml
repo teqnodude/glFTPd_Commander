@@ -4,12 +4,14 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:glFTPd_Commander"
         xmlns:utils="clr-namespace:glFTPd_Commander.Utils"
+        xmlns:converters="clr-namespace:glFTPd_Commander.Converters"
         Title="glFTPd Commander" 
         WindowState="Maximized"
         WindowStartupLocation="CenterScreen">
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
         <utils:RemoveCustomCommandProxy x:Key="RemoveCustomCommandProxy" Command="{Binding RemoveCustomCommandCommand, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}}}" />
+        <converters:IconPathToImageSourceConverter x:Key="IconPathToImageSourceConverter"/>
     </Window.Resources>
     <Grid x:Name="RootFadeContainer">
         <DockPanel Background="{DynamicResource BackgroundBrush}">
@@ -71,7 +73,7 @@
                         <TreeView.ItemTemplate>
                             <HierarchicalDataTemplate ItemsSource="{Binding Children}">
                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                    <Image Source="{Binding Icon}" Width="16" Height="16" Margin="0,0,5,0"/>
+                                    <Image Source="{Binding Icon, Converter={StaticResource IconPathToImageSourceConverter}}" Width="16" Height="16" Margin="0,0,5,0"/>
                                     <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </HierarchicalDataTemplate>

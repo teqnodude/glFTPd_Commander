@@ -143,7 +143,14 @@ namespace glFTPd_Commander
                     if (IsSiteOp) return "pack://application:,,,/Resources/Icons/siteop.png";
                     if (IsGroupAdmin) return "pack://application:,,,/Resources/Icons/groupadmin.png";
                     if (IsUser) return "pack://application:,,,/Resources/Icons/user.png";
-                    return null;
+                    if (Name != null)
+                    {
+                        if (Name.StartsWith("Users (")) return "pack://application:,,,/Resources/Icons/users.png";
+                        if (Name.StartsWith("Active Users")) return "pack://application:,,,/Resources/Icons/activeusers.png";
+                        if (Name.StartsWith("Deleted Users")) return "pack://application:,,,/Resources/Icons/deletedusers.png";
+                        if (Name.StartsWith("Groups (")) return "pack://application:,,,/Resources/Icons/groups.png";
+                    }
+                    return "pack://application:,,,/Resources/Icons/unknown.png";
                 }
             }
         

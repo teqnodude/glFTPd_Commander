@@ -2,6 +2,7 @@
 using glFTPd_Commander.FTP;
 using glFTPd_Commander.Services;
 using glFTPd_Commander.Windows;
+using System.Net;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
@@ -105,7 +106,8 @@ namespace glFTPd_Commander.Views
                     .OrderBy(g => g.TrimStart('+'))
                     .ToList();
 
-                var reply = await Task.Run(() => _ftp!.ExecuteCommand($"SITE USER {_username}", _ftpClient));
+                var (reply, updatedClient2) = await FtpBase.ExecuteFtpCommandWithReconnectAsync($"SITE USER {_username}", _ftpClient, _ftp!);
+                _ftpClient = updatedClient2;
                 if (!string.IsNullOrEmpty(reply)) ParseDetailedUserInfo(reply);
             }
             catch (Exception ex)
@@ -343,15 +345,18 @@ namespace glFTPd_Commander.Views
             {
                 foreach (var flag in added)
                 {
-                    var result = await Task.Run(() => _ftp.UpdateUserFlags(_username, flag.ToString(), true));
+                    var (result, updatedClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync($"SITE CHANGE {_username} flags +{flag}", _ftpClient, _ftp);
+                    _ftpClient = updatedClient;
+                    if (result.Contains("Error")) throw new Exception(result);
+                }
+                
+                foreach (var flag in removed)
+                {
+                    var (result, updatedClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync($"SITE CHANGE {_username} flags -{flag}", _ftpClient, _ftp);
+                    _ftpClient = updatedClient;
                     if (result.Contains("Error")) throw new Exception(result);
                 }
 
-                foreach (var flag in removed)
-                {
-                    var result = await Task.Run(() => _ftp.UpdateUserFlags(_username, flag.ToString(), false));
-                    if (result.Contains("Error")) throw new Exception(result);
-                }
 
                 _oldFlags = newFlags;
                 GroupChanged?.Invoke();
@@ -380,7 +385,8 @@ namespace glFTPd_Commander.Views
             await _ftp!.ConnectionLock.WaitAsync();
             try
             {
-                var result = await Task.Run(() => _ftp.ExecuteCommand($"SITE CHANGE {_username} ratio {newVal}", _ftpClient));
+                var (result, updatedClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync($"SITE CHANGE {_username} ratio {newVal}", _ftpClient, _ftp);
+                _ftpClient = updatedClient;
                 if (result.Contains("Error")) throw new Exception(result);
                 _oldRatios = newVal;
                 await LoadUserDetails();
@@ -421,7 +427,8 @@ namespace glFTPd_Commander.Views
             await _ftp!.ConnectionLock.WaitAsync();
             try
             {
-                var result = await Task.Run(() => _ftp.ExecuteCommand($"SITE CHANGE {_username} expires {newVal}", _ftpClient));
+                var (result, updatedClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync($"SITE CHANGE {_username} expires {newVal}", _ftpClient, _ftp);
+                _ftpClient = updatedClient;
                 if (result.Contains("Error")) throw new Exception(result);
                 _oldExpires = newVal == "0" ? "Never" : newVal;
                 await LoadUserDetails();
@@ -448,7 +455,8 @@ namespace glFTPd_Commander.Views
             await _ftp!.ConnectionLock.WaitAsync();
             try
             {
-                var result = await Task.Run(() => _ftp.ExecuteCommand($"SITE CHANGE {_username} idle_time {minutes}", _ftpClient));
+                var (result, updatedClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync($"SITE CHANGE {_username} idle_time {minutes}", _ftpClient, _ftp);
+                _ftpClient = updatedClient;
                 if (result.Contains("Error")) throw new Exception(result);
                 _oldIdleTime = newVal;
                 await LoadUserDetails();
@@ -485,9 +493,9 @@ namespace glFTPd_Commander.Views
             await _ftp!.ConnectionLock.WaitAsync();
             try
             {
-                var result = await Task.Run(() => _ftp.ExecuteCommand($"SITE RENUSER {_username} {newName}", _ftpClient));
-                if (result.Contains("Error"))
-                    throw new Exception(result);
+                var (result, updatedClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync($"SITE RENUSER {_username} {newName}", _ftpClient, _ftp);
+                _ftpClient = updatedClient;
+                if (result.Contains("Error")) throw new Exception(result);
 
                 _username = newName; // Update the local username after rename
                 GroupChanged?.Invoke();
@@ -517,7 +525,8 @@ namespace glFTPd_Commander.Views
             await _ftp!.ConnectionLock.WaitAsync();
             try
             {
-                var result = await Task.Run(() => _ftp.ExecuteCommand($"SITE CHANGE {_username} max_logins {newVal}", _ftpClient));
+                var (result, updatedClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync($"SITE CHANGE {_username} max_logins {newVal}", _ftpClient, _ftp);
+                _ftpClient = updatedClient;
                 if (result.Contains("Error")) throw new Exception(result);
                 _oldMaxLogins = newVal;
                 await LoadUserDetails();
@@ -544,7 +553,8 @@ namespace glFTPd_Commander.Views
             await _ftp!.ConnectionLock.WaitAsync();
             try
             {
-                var result = await Task.Run(() => _ftp.ExecuteCommand($"SITE CHANGE {_username} same_ip {newVal}", _ftpClient));
+                var (result, updatedClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync($"SITE CHANGE {_username} same_ip {newVal}", _ftpClient, _ftp);
+                _ftpClient = updatedClient;
                 if (result.Contains("Error")) throw new Exception(result);
                 _oldFromSameIp = newVal;
                 await LoadUserDetails();
@@ -571,7 +581,8 @@ namespace glFTPd_Commander.Views
             await _ftp!.ConnectionLock.WaitAsync();
             try
             {
-                var result = await Task.Run(() => _ftp.ExecuteCommand($"SITE CHANGE {_username} tagline {newVal}", _ftpClient));
+                var (result, updatedClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync($"SITE CHANGE {_username} tagline {newVal}", _ftpClient, _ftp);
+                _ftpClient = updatedClient;
                 if (result.Contains("Error")) throw new Exception(result);
                 _oldTagline = newVal;
                 await LoadUserDetails();
@@ -598,7 +609,8 @@ namespace glFTPd_Commander.Views
             await _ftp!.ConnectionLock.WaitAsync();
             try
             {
-                var result = await Task.Run(() => _ftp.ExecuteCommand($"SITE CHANGE {_username} comment {newVal}", _ftpClient));
+                var (result, updatedClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync($"SITE CHANGE {_username} comment {newVal}", _ftpClient, _ftp);
+                _ftpClient = updatedClient;
                 if (result.Contains("Error")) throw new Exception(result);
                 _oldUserComment = newVal;
                 await LoadUserDetails();
@@ -625,7 +637,8 @@ namespace glFTPd_Commander.Views
             await _ftp!.ConnectionLock.WaitAsync();
             try
             {
-                var result = await Task.Run(() => _ftp.ExecuteCommand($"SITE CHANGE {_username} max_sim_up {newVal}", _ftpClient));
+                var (result, updatedClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync($"SITE CHANGE {_username} max_sim_up {newVal}", _ftpClient, _ftp);
+                _ftpClient = updatedClient;
                 if (result.Contains("Error")) throw new Exception(result);
                 _oldMaxSimUploads = newVal;
                 await LoadUserDetails();
@@ -652,7 +665,8 @@ namespace glFTPd_Commander.Views
             await _ftp!.ConnectionLock.WaitAsync();
             try
             {
-                var result = await Task.Run(() => _ftp.ExecuteCommand($"SITE CHANGE {_username} max_sim_dn {newVal}", _ftpClient));
+                var (result, updatedClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync($"SITE CHANGE {_username} max_sim_dn {newVal}", _ftpClient, _ftp);
+                _ftpClient = updatedClient;
                 if (result.Contains("Error")) throw new Exception(result);
                 _oldMaxSimDownloads = newVal;
                 await LoadUserDetails();
@@ -682,7 +696,8 @@ namespace glFTPd_Commander.Views
                     {
                         try
                         {
-                            string result = await Task.Run(() => _ftp!.ExecuteCommand($"SITE CHGRP {_username} {group}", _ftpClient));
+                            var (result, updatedClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync($"SITE CHGRP {_username} {group}", _ftpClient, _ftp);
+                            _ftpClient = updatedClient;
                             if (result.Contains("Error"))
                             {
                                 MessageBox.Show($"Error adding group {group}: {result}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
@@ -716,7 +731,7 @@ namespace glFTPd_Commander.Views
             await _ftp!.ConnectionLock.WaitAsync();
             try
             {
-                foreach (string group in userGroupsList.SelectedItems.Cast<string>().ToList())
+                foreach (string group in userGroupsList.SelectedItems)
                 {
                     string groupName = group.TrimStart('+');
                     string? error = null;
@@ -724,16 +739,18 @@ namespace glFTPd_Commander.Views
                     // If group is a group admin, remove admin status first
                     if (group.StartsWith('+'))
                     {
-                        string resultAdmin = await Task.Run(() => _ftp!.ExecuteCommand($"SITE CHGADMIN {_username} {groupName}", _ftpClient));
-                        if (resultAdmin.Contains("Error"))
+                        var (result, updatedClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync($"SITE CHGADMIN {_username} {groupName}", _ftpClient, _ftp);
+                        _ftpClient = updatedClient;
+                        if (result.Contains("Error"))
                         {
-                            error = $"Error removing group admin status from group {groupName}: {resultAdmin}";
+                            error = $"Error removing group admin status from group {groupName}: {result}";
                         }
                     }
         
                     if (error == null)
                     {
-                        string result = await Task.Run(() => _ftp!.ExecuteCommand($"SITE CHGRP {_username} {groupName}", _ftpClient));
+                        var (result, updatedClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync($"SITE CHGRP {_username} {groupName}", _ftpClient, _ftp);
+                        _ftpClient = updatedClient;
                         if (result.Contains("Error"))
                         {
                             error = $"Error removing group {groupName}: {result}";
@@ -767,7 +784,7 @@ namespace glFTPd_Commander.Views
         {
             if (ipRestrictionsList.SelectedItem is KeyValuePair<string, string> selectedIp)
             {
-                string ipNumber = selectedIp.Key.Replace("IP", "");
+                string ipAddress = selectedIp.Key.Replace("IP", "");
 
                 _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
                     if (_ftpClient == null) return;
@@ -775,7 +792,8 @@ namespace glFTPd_Commander.Views
                 await _ftp!.ConnectionLock.WaitAsync();
                 try
                 {
-                    string result = await Task.Run(() => _ftp.ExecuteDelIpCommand(_username, ipNumber, _ftpClient));
+                    var (result, updatedClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync($"SITE DELIP {_username} {ipAddress}", _ftpClient, _ftp);
+                    _ftpClient = updatedClient;
                     if (result.Contains("Error"))
                     {
                         MessageBox.Show(result, "Error Removing IP", MessageBoxButton.OK, MessageBoxImage.Error);
@@ -814,7 +832,8 @@ namespace glFTPd_Commander.Views
                 await _ftp!.ConnectionLock.WaitAsync();
                 try
                 {
-                    string result = await Task.Run(() => _ftp.AddIpRestriction(_username, ipAddress, _ftpClient));
+                    var (result, updatedClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync($"SITE ADDIP {_username} {ipAddress}", _ftpClient, _ftp);
+                    _ftpClient = updatedClient;
                     if (result.Contains("Error"))
                     {
                         MessageBox.Show(result, "Error Adding IP", MessageBoxButton.OK, MessageBoxImage.Error);
@@ -872,7 +891,8 @@ namespace glFTPd_Commander.Views
             await _ftp!.ConnectionLock.WaitAsync();
             try
             {
-                string result = await Task.Run(() => _ftp.ExecuteCommand($"SITE READD {_username}", _ftpClient));
+                var (result, updatedClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync($"SITE READD {_username}", _ftpClient, _ftp);
+                _ftpClient = updatedClient;
                 if (!result.Contains("Error", StringComparison.OrdinalIgnoreCase))
                 {
                     UserDeleted?.Invoke();
@@ -906,7 +926,9 @@ namespace glFTPd_Commander.Views
             await _ftp!.ConnectionLock.WaitAsync();
             try
             {
-                string result = await Task.Run(() => _ftp.DelUser(_username, _ftpClient));
+                var (result, updatedClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync($"SITE DELUSER {_username}", _ftpClient, _ftp);
+                _ftpClient = updatedClient;
+
                 if (!result.Contains("Error", StringComparison.OrdinalIgnoreCase))
                 {
                     UserDeleted?.Invoke();
@@ -928,7 +950,9 @@ namespace glFTPd_Commander.Views
             await _ftp!.ConnectionLock.WaitAsync();
             try
             {
-                string result = await Task.Run(() => _ftp.PurgeUser(_username, _ftpClient));
+                var (result, updatedClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync($"SITE PURGE {_username}", _ftpClient, _ftp);
+                _ftpClient = updatedClient;
+
                 if (!result.Contains("Error", StringComparison.OrdinalIgnoreCase))
                 {
                     UserDeleted?.Invoke();
@@ -953,8 +977,8 @@ namespace glFTPd_Commander.Views
             await _ftp!.ConnectionLock.WaitAsync();
             try
             {
-                var result = await Task.Run(() =>
-                    _ftp.ExecuteCommand($"SITE CHANGE {_username} time_limit {newVal}", _ftpClient));
+                var (result, updatedClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync($"SITE CHANGE {_username} time_limit {newVal}", _ftpClient, _ftp);
+                _ftpClient = updatedClient;
                 if (result.Contains("Error"))
                     throw new Exception(result);
         
@@ -983,8 +1007,8 @@ namespace glFTPd_Commander.Views
             await _ftp!.ConnectionLock.WaitAsync();
             try
             {
-                var result = await Task.Run(() =>
-                    _ftp.ExecuteCommand($"SITE CHANGE {_username} timeframe {newVal}", _ftpClient));
+                var (result, updatedClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync($"SITE CHANGE {_username} timeframe {newVal}", _ftpClient, _ftp);
+                _ftpClient = updatedClient;
                 if (result.Contains("Error"))
                     throw new Exception(result);
         
