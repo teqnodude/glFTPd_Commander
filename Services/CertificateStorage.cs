@@ -6,8 +6,10 @@ namespace glFTPd_Commander.Services
 {
     public static class CertificateStorage
     {
-        private static readonly object fileLock = new object();
-        private static Dictionary<string, Dictionary<string, string>> _certificates = new Dictionary<string, Dictionary<string, string>>();
+        private static readonly Lock fileLock = new();
+        private static Dictionary<string, Dictionary<string, string>> _certificates = [];
+        private static readonly JsonSerializerOptions s_writeIndentedOptions = new() { WriteIndented = true };
+
         
         static CertificateStorage()
         {
@@ -18,7 +20,7 @@ namespace glFTPd_Commander.Services
         {
             return "accepted_certs.json";
         }
-        
+
         private static void LoadCertificates()
         {
             lock (fileLock)
@@ -27,7 +29,7 @@ namespace glFTPd_Commander.Services
                 {
                     if (!File.Exists(GetCertificatesFilePath()))
                     {
-                        _certificates = new Dictionary<string, Dictionary<string, string>>();
+                        _certificates = [];
                         return;
                     }
                     
@@ -35,10 +37,10 @@ namespace glFTPd_Commander.Services
                     if (!string.IsNullOrWhiteSpace(json) && json != "{}")
                     {
                         var loadedCerts = JsonSerializer.Deserialize<Dictionary<string, Dictionary<string, string>>>(json) 
-                                        ?? new Dictionary<string, Dictionary<string, string>>();
+                                        ?? [];
                         
                         // Migrate any unencrypted connection names to encrypted format
-                        _certificates = new Dictionary<string, Dictionary<string, string>>();
+                        _certificates = [];
                         foreach (var pair in loadedCerts)
                         {
                             string encryptedKey;
@@ -59,12 +61,12 @@ namespace glFTPd_Commander.Services
                     }
                     else
                     {
-                        _certificates = new Dictionary<string, Dictionary<string, string>>();
+                        _certificates = [];
                     }
                 }
                 catch
                 {
-                    _certificates = new Dictionary<string, Dictionary<string, string>>();
+                    _certificates = [];
                 }
             }
         }
@@ -116,20 +118,19 @@ namespace glFTPd_Commander.Services
                     ? "" 
                     : EncryptString(connectionName);
                 
-                if (!_certificates.ContainsKey(encryptedConnectionName))
+                if (!_certificates.TryGetValue(encryptedConnectionName, out var value))
                 {
-                    _certificates[encryptedConnectionName] = new Dictionary<string, string>();
+                    value = [];
+                    _certificates[encryptedConnectionName] = value;
                 }
                 
                 // Encrypt both thumbprint and subject
                 var encryptedThumbprint = EncryptString(thumbprint);
                 var encryptedSubject = EncryptString(subject);
-                
-                _certificates[encryptedConnectionName][encryptedThumbprint] = encryptedSubject;
+                value[encryptedThumbprint] = encryptedSubject;
         
-                var options = new JsonSerializerOptions { WriteIndented = true };
                 File.WriteAllText(GetCertificatesFilePath(), 
-                    JsonSerializer.Serialize(_certificates, options));
+                    JsonSerializer.Serialize(_certificates, s_writeIndentedOptions));
             }
         }
 
@@ -242,9 +243,9 @@ namespace glFTPd_Commander.Services
     public static class EncryptionKeyManager
     {
         private const string KeyFilePath = "keyinfo.dat";
-        private static readonly object _lock = new object();
-        public static byte[] Key { get; private set; } = Array.Empty<byte>();
-        public static byte[] IV { get; private set; } = Array.Empty<byte>();
+        private static readonly System.Threading.Lock _lock = new();
+        public static byte[] Key { get; private set; } = [];
+        public static byte[] IV { get; private set; } = [];
 
         public static void Initialize()
         {

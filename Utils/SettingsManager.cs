@@ -1,4 +1,5 @@
-﻿using glFTPd_Commander.Models;
+﻿using glFTPd_Commander.FTP;
+using glFTPd_Commander.Models;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -11,7 +12,7 @@ namespace glFTPd_Commander.Utils
     {
         public Dictionary<string, WindowPlacementInfo>? WindowPlacement { get; set; }
         public List<CustomCommandSlot>? CustomCommandSlots { get; set; }
-        public List<FtpConnection>? FtpConnections { get; set; }
+        public List<FtpConnection> FtpConnections { get; set; } = [];
     }
 
     public class WindowPlacementInfo
@@ -40,6 +41,7 @@ namespace glFTPd_Commander.Utils
         private static readonly string OldCommandsFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "CustomCommandSlots.json");
         private static readonly string OldWindowFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "MainWindow.windowstate.json");
         private static readonly string OldFtpConfigFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ftpconfig.txt");
+        private static readonly JsonSerializerOptions PrettyPrintOptions = new() { WriteIndented = true };
 
         public static AppSettings Current { get; private set; } = new AppSettings();
 
@@ -72,7 +74,7 @@ namespace glFTPd_Commander.Utils
                     var commands = JsonSerializer.Deserialize<List<CustomCommandSlot>>(File.ReadAllText(OldCommandsFile));
                     if (commands != null)
                     {
-                        if (Current.CustomCommandSlots == null) Current.CustomCommandSlots = new List<CustomCommandSlot>();
+                        if (Current.CustomCommandSlots == null) Current.CustomCommandSlots = [];
                         Current.CustomCommandSlots.AddRange(commands);
                         changed = true;
                     }
@@ -89,7 +91,7 @@ namespace glFTPd_Commander.Utils
                     var placement = JsonSerializer.Deserialize<WindowPlacementInfo>(File.ReadAllText(OldWindowFile));
                     if (placement != null)
                     {
-                        if (Current.WindowPlacement == null) Current.WindowPlacement = new Dictionary<string, WindowPlacementInfo>();
+                        Current.WindowPlacement ??= [];
                         Current.WindowPlacement["MainWindow"] = placement;
                         changed = true;
                     }
@@ -106,8 +108,7 @@ namespace glFTPd_Commander.Utils
                     var importedConnections = ParseOldFtpConfig(File.ReadAllLines(OldFtpConfigFile));
                     if (importedConnections.Count > 0)
                     {
-                        if (Current.FtpConnections == null)
-                            Current.FtpConnections = new List<FtpConnection>();
+                        Current.FtpConnections ??= [];
                         Current.FtpConnections.AddRange(importedConnections);
                         changed = true;
                     }
@@ -126,15 +127,15 @@ namespace glFTPd_Commander.Utils
                 foreach (var conn in Current.FtpConnections)
                 {
                     if (!string.IsNullOrWhiteSpace(conn.Name))
-                        conn.Name = Services.FTP.TryDecryptString(conn.Name) ?? conn.Name;
+                        conn.Name = GlFtpdClient.TryDecryptString(conn.Name) ?? conn.Name;
                     if (!string.IsNullOrWhiteSpace(conn.Host))
-                        conn.Host = Services.FTP.TryDecryptString(conn.Host) ?? conn.Host;
+                        conn.Host = GlFtpdClient.TryDecryptString(conn.Host) ?? conn.Host;
                     if (!string.IsNullOrWhiteSpace(conn.Port))
-                        conn.Port = Services.FTP.TryDecryptString(conn.Port) ?? conn.Port;
+                        conn.Port = GlFtpdClient.TryDecryptString(conn.Port) ?? conn.Port;
                     if (!string.IsNullOrWhiteSpace(conn.Username))
-                        conn.Username = Services.FTP.TryDecryptString(conn.Username) ?? conn.Username;
+                        conn.Username = GlFtpdClient.TryDecryptString(conn.Username) ?? conn.Username;
                     if (!string.IsNullOrWhiteSpace(conn.Password))
-                        conn.Password = Services.FTP.TryDecryptString(conn.Password) ?? conn.Password;
+                        conn.Password = GlFtpdClient.TryDecryptString(conn.Password) ?? conn.Password;
                 }
             }
 
@@ -155,18 +156,18 @@ namespace glFTPd_Commander.Utils
                 foreach (var conn in clone.FtpConnections)
                 {
                     if (!string.IsNullOrWhiteSpace(conn.Name))
-                        conn.Name = Services.FTP.EncryptString(conn.Name);
+                        conn.Name = GlFtpdClient.EncryptString(conn.Name);
                     if (!string.IsNullOrWhiteSpace(conn.Host))
-                        conn.Host = Services.FTP.EncryptString(conn.Host);
+                        conn.Host = GlFtpdClient.EncryptString(conn.Host);
                     if (!string.IsNullOrWhiteSpace(conn.Port))
-                        conn.Port = Services.FTP.EncryptString(conn.Port);
+                        conn.Port = GlFtpdClient.EncryptString(conn.Port);
                     if (!string.IsNullOrWhiteSpace(conn.Username))
-                        conn.Username = Services.FTP.EncryptString(conn.Username);
+                        conn.Username = GlFtpdClient.EncryptString(conn.Username);
                     if (!string.IsNullOrWhiteSpace(conn.Password))
-                        conn.Password = Services.FTP.EncryptString(conn.Password);
+                        conn.Password = GlFtpdClient.EncryptString(conn.Password);
                 }
             }
-            File.WriteAllText(SettingsFile, JsonSerializer.Serialize(clone, new JsonSerializerOptions { WriteIndented = true }));
+            File.WriteAllText(SettingsFile, JsonSerializer.Serialize(clone, PrettyPrintOptions));
         }
 
         // ----------- Window Placement ------------
@@ -181,8 +182,7 @@ namespace glFTPd_Commander.Utils
 
         public static void SetMainWindowPlacement(WindowPlacementInfo info)
         {
-            if (Current.WindowPlacement == null)
-                Current.WindowPlacement = new Dictionary<string, WindowPlacementInfo>();
+            Current.WindowPlacement ??= [];
             Current.WindowPlacement["MainWindow"] = info;
             Save();
         }
@@ -191,7 +191,7 @@ namespace glFTPd_Commander.Utils
 
         public static List<CustomCommandSlot> GetCustomCommandSlots()
         {
-            return Current.CustomCommandSlots ??= new List<CustomCommandSlot>();
+            return Current.CustomCommandSlots ??= [];
         }
 
         public static void SetCustomCommandSlots(List<CustomCommandSlot> slots)
@@ -202,8 +202,7 @@ namespace glFTPd_Commander.Utils
 
         public static void AddCustomCommandSlot(CustomCommandSlot slot)
         {
-            if (Current.CustomCommandSlots == null)
-                Current.CustomCommandSlots = new List<CustomCommandSlot>();
+            Current.CustomCommandSlots ??= [];
             Current.CustomCommandSlots.Add(slot);
             Save();
         }
@@ -222,7 +221,7 @@ namespace glFTPd_Commander.Utils
 
         public static List<FtpConnection> GetFtpConnections()
         {
-            return Current.FtpConnections ??= new List<FtpConnection>();
+            return Current.FtpConnections ??= [];
         }
 
         public static void SetFtpConnections(List<FtpConnection> connections)
@@ -233,8 +232,7 @@ namespace glFTPd_Commander.Utils
 
         public static void AddFtpConnection(FtpConnection connection)
         {
-            if (Current.FtpConnections == null)
-                Current.FtpConnections = new List<FtpConnection>();
+            Current.FtpConnections ??= [];
             Current.FtpConnections.Add(connection);
             Save();
         }
@@ -258,7 +256,7 @@ namespace glFTPd_Commander.Utils
 
             foreach (var line in lines)
             {
-                if (line.StartsWith("[") && line.EndsWith("]"))
+                if (line.StartsWith('[') && line.EndsWith(']'))
                 {
                     if (current != null)
                         connections.Add(current);
@@ -270,8 +268,8 @@ namespace glFTPd_Commander.Utils
                 else if (current != null && line.Contains('='))
                 {
                     var idx = line.IndexOf('=');
-                    var key = line.Substring(0, idx).Trim();
-                    var value = line.Substring(idx + 1).Trim();
+                    var key = line[..idx].Trim();
+                    var value = line[(idx + 1)..].Trim();
 
                     switch (key.ToLowerInvariant())
                     {

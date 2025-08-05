@@ -1,4 +1,5 @@
 ﻿using FluentFTP;
+using glFTPd_Commander.FTP;
 using glFTPd_Commander.Services;
 using System;
 using System.Linq;
@@ -10,7 +11,7 @@ namespace glFTPd_Commander.Windows
 {
     public partial class AddUserWindow : BaseWindow
     {
-        private readonly FTP _ftp;
+        private readonly GlFtpdClient _ftp;
         private FtpClient? _ftpClient;
 
         public string Username => txtNewUsername.Text.Trim();
@@ -22,7 +23,7 @@ namespace glFTPd_Commander.Windows
 
         public bool AddSuccessful { get; private set; } = false;
 
-        public AddUserWindow(FTP ftp, FtpClient ftpClient)
+        public AddUserWindow(GlFtpdClient ftp, FtpClient ftpClient)
         {
             InitializeComponent();
             _ftp = ftp;
@@ -44,7 +45,7 @@ namespace glFTPd_Commander.Windows
             try
             {
                 var (groups, updatedClient) = await FtpBase.ExecuteWithConnectionAsync(
-                    _ftpClient, _ftp, c => Task.Run(() => (List<FTP.FtpGroup>?)_ftp.GetGroups(c)));
+                    _ftpClient, _ftp, c => Task.Run(() => (List<GlFtpdClient.FtpGroup>?)_ftp.GetGroups(c)));
                 _ftpClient = updatedClient;
                 if (_ftpClient == null)
                 {
@@ -123,7 +124,11 @@ namespace glFTPd_Commander.Windows
             await _ftp.ConnectionLock.WaitAsync();
             try
             {
-                var result = await _ftp.AddUser(_ftpClient, _ftp, Username, Password, SelectedGroup, IPAddress);
+                var command = $"SITE GADDUSER {SelectedGroup} {Username} {Password} {IPAddress}";
+                var (result, updatedClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync(command, _ftpClient, _ftp);
+                
+                _ftpClient = updatedClient; // Always update the field!
+
                 if (_ftpClient == null)
                 {
                     MessageBox.Show("Lost connection to the FTP server.", "Connection Lost", MessageBoxButton.OK, MessageBoxImage.Error);

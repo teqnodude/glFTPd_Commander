@@ -12,10 +12,7 @@ namespace glFTPd_Commander.Converters
 
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            bool flag = false;
-
-            if (value is bool)
-                flag = (bool)value;
+            bool flag = value is bool b && b;
 
             if (Invert)
                 flag = !flag;

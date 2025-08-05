@@ -3,12 +3,13 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:glFTPd_Commander"
+        xmlns:utils="clr-namespace:glFTPd_Commander.Utils"
         Title="glFTPd Commander" 
         WindowState="Maximized"
         WindowStartupLocation="CenterScreen">
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
-        <local:RemoveCustomCommandProxy x:Key="RemoveCustomCommandProxy" Command="{Binding RemoveCustomCommandCommand, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}}}" />
+        <utils:RemoveCustomCommandProxy x:Key="RemoveCustomCommandProxy" Command="{Binding RemoveCustomCommandCommand, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}}}" />
     </Window.Resources>
     <Grid x:Name="RootFadeContainer">
         <DockPanel Background="{DynamicResource BackgroundBrush}">
@@ -20,8 +21,8 @@
                     <MenuItem Header="Disconnect" Click="Disconnect_Click" Name="disconnectMenuItem"/>
                 </MenuItem>
                 <MenuItem Header="Users &amp; Groups" Name="usersGroupsMenuItem">
-                    <MenuItem Header="Add User" Click="userAdd_Click"/>
-                    <MenuItem Header="Add Group" Click="groupAdd_Click"/>
+                    <MenuItem Header="Add User" Click="UserAdd_Click"/>
+                    <MenuItem Header="Add Group" Click="GroupAdd_Click"/>
                 </MenuItem>
                 <MenuItem Header="Help">
                     <MenuItem Header="User Guide" Click="Help_Click"/>

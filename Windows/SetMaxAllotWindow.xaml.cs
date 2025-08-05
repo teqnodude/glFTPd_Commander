@@ -1,4 +1,5 @@
 ﻿using FluentFTP;
+using glFTPd_Commander.FTP;
 using glFTPd_Commander.Models;
 using glFTPd_Commander.Services;
 using glFTPd_Commander.Windows;
@@ -10,14 +11,14 @@ namespace glFTPd_Commander.Windows
 {
     public partial class SetMaxAllotWindow : BaseWindow
     {
-        private readonly FTP _ftp;
+        private readonly GlFtpdClient _ftp;
         private readonly FtpClient _ftpClient;
         private readonly string _group;
 
         public string Amount => amountText.Text.Trim();
         public string? Unit => (unitsComboBox.SelectedItem as UnitItem)?.Code;
 
-        public SetMaxAllotWindow(FTP ftp, FtpClient ftpClient, string group)
+        public SetMaxAllotWindow(GlFtpdClient ftp, FtpClient ftpClient, string group)
         {
             InitializeComponent();
             _ftp = ftp;

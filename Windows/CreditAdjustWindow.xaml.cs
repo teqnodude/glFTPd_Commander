@@ -1,4 +1,5 @@
 ﻿using FluentFTP;
+using glFTPd_Commander.FTP;
 using glFTPd_Commander.Models;
 using glFTPd_Commander.Services;
 using glFTPd_Commander.Windows;
@@ -10,7 +11,7 @@ namespace glFTPd_Commander.Windows
 {
     public partial class CreditAdjustWindow : BaseWindow
     {
-        private readonly FTP _ftp;
+        private readonly GlFtpdClient _ftp;
         private readonly FtpClient _ftpClient;
         private readonly string _username;
         private readonly string _operation; // GIVE or TAKE
@@ -20,7 +21,7 @@ namespace glFTPd_Commander.Windows
         public string Amount => amountText.Text.Trim();
         public string? Unit => (unitsComboBox.SelectedItem as UnitItem)?.Code;
 
-        public CreditAdjustWindow(FTP ftp, FtpClient ftpClient, string username, string operation)
+        public CreditAdjustWindow(GlFtpdClient ftp, FtpClient ftpClient, string username, string operation)
         {
             InitializeComponent();
             _ftp = ftp;

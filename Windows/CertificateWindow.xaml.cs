@@ -17,13 +17,11 @@ namespace glFTPd_Commander
 
             try
             {
-                using (var cert2 = new X509Certificate2(certificate))
-                {
-                    CertificateThumbprint = cert2.Thumbprint;
-                    CertificateSubject = cert2.Subject;
-                    DisplayCertificateDetails(cert2);
-                    return;
-                }
+                using var cert2 = new X509Certificate2(certificate);
+                CertificateThumbprint = cert2.Thumbprint;
+                CertificateSubject = cert2.Subject;
+                DisplayCertificateDetails(cert2);
+                return;
             }
             catch
             {

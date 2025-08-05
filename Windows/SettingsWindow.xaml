@@ -32,10 +32,10 @@
 
         <!-- Connection Management -->
         <Label Content="Connections:" Width="300" Grid.Row="0"/>
-        <ComboBox x:Name="connectionComboBox" SelectionChanged="connectionComboBox_SelectionChanged" DisplayMemberPath="Name" Margin="0,0,0,10" Grid.Row="1"/>
+        <ComboBox x:Name="connectionComboBox" SelectionChanged="ConnectionComboBox_SelectionChanged" DisplayMemberPath="Name" Margin="0,0,0,10" Grid.Row="1"/>
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,10" Grid.Row="2">
-            <Button x:Name="btnAddConnection" Content="Add Connection" Margin="0,0,10,0" Click="btnAddConnection_Click"/>
-            <Button x:Name="btnRemoveConnection" Content="Remove" Click="btnRemoveConnection_Click"/>
+            <Button x:Name="btnAddConnection" Content="Add Connection" Margin="0,0,10,0" Click="AddConnection_Click"/>
+            <Button x:Name="btnRemoveConnection" Content="Remove" Click="RemoveConnection_Click"/>
         </StackPanel>
 
         <!-- Connection Details -->
@@ -76,7 +76,7 @@
         <!-- Buttons -->
         <StackPanel Grid.Row="17" Orientation="Horizontal" HorizontalAlignment="Right">
             <Button x:Name="btnSave" Content="Save" Margin="0,0,10,0" IsDefault="True" Click="Save_Click" IsEnabled="False"/>
-            <Button x:Name="btnCancel" Content="Cancel" IsCancel="True" Click="btnCancel_Click"/>
+            <Button x:Name="btnCancel" Content="Cancel" IsCancel="True" Click="Cancel_Click"/>
         </StackPanel>
     </Grid>
 </local:BaseWindow>

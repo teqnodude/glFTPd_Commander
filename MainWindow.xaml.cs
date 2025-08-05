@@ -1,5 +1,6 @@
 ﻿using FluentFTP;
 using FluentFTP.Exceptions;
+using glFTPd_Commander.FTP;
 using glFTPd_Commander.Models;
 using glFTPd_Commander.Services;
 using glFTPd_Commander.Utils;
@@ -11,7 +12,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Threading;
-using static glFTPd_Commander.Services.FTP;
+using static glFTPd_Commander.FTP.GlFtpdClient;
 using Debug = System.Diagnostics.Debug;
 
 
@@ -19,7 +20,7 @@ namespace glFTPd_Commander
 {
     public partial class MainWindow : Window, INotifyPropertyChanged
     {
-        private FTP? _ftp;
+        private GlFtpdClient? _ftp;
         private FtpClient? _ftpClient;
         private string? _currentConnectionEncryptedName;
         public string? CurrentConnectionName => _currentConnectionEncryptedName;
@@ -28,9 +29,9 @@ namespace glFTPd_Commander
         private string? baseTitle;
         private bool _isLoading = false;
         private bool _popupOpen = false;
-        private HashSet<string> expandedKeys = new HashSet<string>();
+        private readonly HashSet<string> expandedKeys = [];
         public bool IsConnected => _ftpClient != null && _ftpClient.IsConnected;
-        public ObservableCollection<FtpTreeItem> RootItems { get; } = new();
+        public ObservableCollection<FtpTreeItem> RootItems { get; } = [];
         public static string Version => Assembly.GetExecutingAssembly()
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
             .InformationalVersion?
@@ -42,8 +43,8 @@ namespace glFTPd_Commander
         public event PropertyChangedEventHandler? PropertyChanged;
         protected void OnPropertyChanged(string propertyName) =>
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-        private readonly List<string> _commandHistory = new();
-        public ObservableCollection<CustomCommandSlot> CustomCommandSlots { get; } = new();
+        private readonly List<string> _commandHistory = [];
+        public ObservableCollection<CustomCommandSlot> CustomCommandSlots { get; } = [];
         public ICommand CustomCommandSlotClickCommand { get; }
         public ICommand RemoveCustomCommandCommand { get; }
 
@@ -69,7 +70,7 @@ namespace glFTPd_Commander
                 }
             }
         
-            public ObservableCollection<FtpTreeItem> Children { get; set; } = new ObservableCollection<FtpTreeItem>();
+            public ObservableCollection<FtpTreeItem> Children { get; set; } = [];
         
             public FtpUser? User { get; set; }
             public FtpGroup? Group { get; set; }
@@ -272,13 +273,13 @@ namespace glFTPd_Commander
                 }
         
                 var usersTask = FtpBase.ExecuteWithConnectionAsync(
-                    _ftpClient, _ftp, c => Task.Run(() => (List<FTP.FtpUser>?)_ftp.GetUsers(c)));
+                    _ftpClient, _ftp, c => Task.Run(() => (List<GlFtpdClient.FtpUser>?)_ftp.GetUsers(c)));
                 
                 var groupsTask = FtpBase.ExecuteWithConnectionAsync(
-                    _ftpClient, _ftp, c => Task.Run(() => (List<FTP.FtpGroup>?)_ftp.GetGroups(c)));
+                    _ftpClient, _ftp, c => Task.Run(() => (List<GlFtpdClient.FtpGroup>?)_ftp.GetGroups(c)));
                 
                 var deletedUsersTask = FtpBase.ExecuteWithConnectionAsync(
-                    _ftpClient, _ftp, c => Task.Run(() => (List<FTP.FtpUser>?)_ftp.GetDeletedUsers(c)));
+                    _ftpClient, _ftp, c => Task.Run(() => (List<GlFtpdClient.FtpUser>?)_ftp.GetDeletedUsers(c)));
 
         
                 await Task.WhenAll(usersTask, groupsTask, deletedUsersTask);
@@ -293,9 +294,9 @@ namespace glFTPd_Commander
                     return;
                 }
         
-                var users = usersTask.Result.Result ?? new List<FtpUser>();
-                var groups = groupsTask.Result.Result ?? new List<FtpGroup>();
-                var deletedUsers = deletedUsersTask.Result.Result ?? new List<FtpUser>();
+                var users = usersTask.Result.Result ?? [];
+                var groups = groupsTask.Result.Result ?? [];
+                var deletedUsers = deletedUsersTask.Result.Result ?? [];
 
                 var root = new FtpTreeItem { Name = $"FTP Server: {_ftp.Host}", IsRoot = true };
 
@@ -384,7 +385,7 @@ namespace glFTPd_Commander
                     SaveExpandedNodes(RootItems);
 
                     // Update the tree while preserving structure
-                    UpdateTree(RootItems, new List<FtpTreeItem> { root });
+                    UpdateTree(RootItems, [root]);
 
                     // Restore expanded state after update
                     RestoreExpandedNodes(RootItems);
@@ -465,7 +466,7 @@ namespace glFTPd_Commander
             });
         }
 
-        private FtpTreeItem? FindUserNodeByUsername(IEnumerable<FtpTreeItem> nodes, string username)
+        private static FtpTreeItem? FindUserNodeByUsername(IEnumerable<FtpTreeItem> nodes, string username)
         {
             foreach (var node in nodes)
             {
@@ -479,14 +480,13 @@ namespace glFTPd_Commander
             return null;
         }
 
-        private void ExpandAndSelectTreeViewItem(ItemsControl parent, object targetItem)
+        private static void ExpandAndSelectTreeViewItem(ItemsControl parent, object targetItem)
         {
             foreach (object item in parent.Items)
             {
-                var container = parent.ItemContainerGenerator.ContainerFromItem(item) as TreeViewItem;
-                if (container == null)
+                if (parent.ItemContainerGenerator.ContainerFromItem(item) is not TreeViewItem container)
                     continue;
-        
+
                 if (item == targetItem)
                 {
                     container.IsSelected = true;
@@ -580,7 +580,7 @@ namespace glFTPd_Commander
             helpWindow.ShowDialog();
         }
 
-       private void userAdd_Click(object sender, RoutedEventArgs e)
+       private void UserAdd_Click(object sender, RoutedEventArgs e)
         {
             var addUserWindow = new AddUserWindow(_ftp!, _ftpClient!)
             {
@@ -594,7 +594,7 @@ namespace glFTPd_Commander
             }
         }
         
-        private void groupAdd_Click(object sender, RoutedEventArgs e)
+        private void GroupAdd_Click(object sender, RoutedEventArgs e)
         {
             var addGroupWindow = new AddGroupWindow(_ftp!, _ftpClient!)
             {
@@ -608,7 +608,7 @@ namespace glFTPd_Commander
             }
         }
 
-        private void UpdateTree(ObservableCollection<FtpTreeItem> target, List<FtpTreeItem> source)
+        private static void UpdateTree(ObservableCollection<FtpTreeItem> target, List<FtpTreeItem> source)
         {
             // Remove items not in source
             for (int i = target.Count - 1; i >= 0; i--)
@@ -638,7 +638,7 @@ namespace glFTPd_Commander
                     existing.User = s.User;
                     existing.Group = s.Group;
                     // Recursive update on children
-                    UpdateTree(existing.Children, s.Children.ToList());
+                    UpdateTree(existing.Children, [.. s.Children]);
                     // Move to correct position if needed
                     if (target.IndexOf(existing) != i)
                     {
@@ -679,7 +679,7 @@ namespace glFTPd_Commander
                 SetExpandedRecursive(item, false);
         }
         
-        private void SetExpandedRecursive(FtpTreeItem node, bool expanded)
+        private static void SetExpandedRecursive(FtpTreeItem node, bool expanded)
         {
             node.IsExpanded = expanded;
             foreach (var child in node.Children)
@@ -795,10 +795,10 @@ namespace glFTPd_Commander
                 _ftpClient?.Disconnect();
                 _ftpClient?.Dispose();
                 _ftpClient = null;
-                FTP.ClearSessionCaches();
+                GlFtpdClient.ClearSessionCaches();
         
                 // Build FTP object from encrypted values
-                _ftp = new FTP();
+                _ftp = new GlFtpdClient();
 
                 if (conn.Host is null || conn.Port is null || conn.Username is null || conn.Password is null)
                 {
@@ -881,7 +881,7 @@ namespace glFTPd_Commander
                     slot.Command = dlg.SiteCommand;
                     slot.ButtonText = string.IsNullOrWhiteSpace(dlg.CustomLabel) ? dlg.SiteCommand : dlg.CustomLabel;
                     Debug.WriteLine($"[CustomCmd] Configured slot with: {slot.Command}");
-                    SettingsManager.SetCustomCommandSlots(CustomCommandSlots.ToList());
+                    SettingsManager.SetCustomCommandSlots([.. CustomCommandSlots]);
                 }
             }
             else
@@ -930,7 +930,7 @@ namespace glFTPd_Commander
             slot.Command = null;
             slot.ButtonText = "Configure Button";
             Debug.WriteLine($"[CustomCmd] Removed configuration from slot.");
-            SettingsManager.SetCustomCommandSlots(CustomCommandSlots.ToList());
+            SettingsManager.SetCustomCommandSlots([.. CustomCommandSlots]);
         }
 
 

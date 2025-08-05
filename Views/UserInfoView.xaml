@@ -271,29 +271,29 @@ permissions in the config file.</TextBlock>
 
                 <!-- User Action Buttons at Bottom -->
                 <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,0">
-                    <Button x:Name="userPurge" 
+                    <Button x:Name="UserPurge" 
                     Content="Purge User" 
                     Width="110" 
                     Height="35"
                     Margin="0,0,0,0"
                     Visibility="Collapsed"
                     Background="Red"
-                    Click="userPurge_Click"/>
-                    <Button x:Name="userRemove" 
+                    Click="UserPurge_Click"/>
+                    <Button x:Name="UserRemove" 
                     Content="Remove User" 
                     Width="110" 
                     Height="35"
                     Margin="10,0,0,0"
                     Background="Red"
-                    Click="userRemove_Click"/>
-                    <Button x:Name="userReAdd" 
+                    Click="UserRemove_Click"/>
+                    <Button x:Name="UserReAdd" 
                     Content="ReAdd User" 
                     Width="110" 
                     Height="35"
                     Margin="10,0,0,0"
                     Visibility="Collapsed"
                     Background="Green"
-                    Click="userReAdd_Click"/>
+                    Click="UserReAdd_Click"/>
                 </StackPanel>
             </Grid>
         </Grid>

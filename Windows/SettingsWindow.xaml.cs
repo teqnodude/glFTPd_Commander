@@ -14,7 +14,7 @@ namespace glFTPd_Commander.Windows
     public partial class SettingsWindow : BaseWindow
     {
         private bool isPasswordVisible = false;
-        private ObservableCollection<FtpConnection> connections = new();
+        private readonly ObservableCollection<FtpConnection> connections = [];
         private FtpConnection? currentConnection;
 
         public SettingsWindow()
@@ -54,8 +54,7 @@ namespace glFTPd_Commander.Windows
             }
         }
 
-
-        private void connectionComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        private void ConnectionComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (connectionComboBox.SelectedIndex >= 0 && connectionComboBox.SelectedIndex < connections.Count)
             {
@@ -114,9 +113,9 @@ namespace glFTPd_Commander.Windows
             DisplayConnection(currentConnection);
         }
 
-        private void btnAddConnection_Click(object sender, RoutedEventArgs e) => AddNewConnection();
+        private void AddConnection_Click(object sender, RoutedEventArgs e) => AddNewConnection();
 
-        private void btnRemoveConnection_Click(object sender, RoutedEventArgs e)
+        private void RemoveConnection_Click(object sender, RoutedEventArgs e)
         {
             if (connectionComboBox.SelectedIndex >= 0)
             {
@@ -235,7 +234,7 @@ namespace glFTPd_Commander.Windows
         }
 
 
-        private void btnCancel_Click(object sender, RoutedEventArgs e)
+        private void Cancel_Click(object sender, RoutedEventArgs e)
         {
             this.Close();
         }

@@ -3,6 +3,7 @@ using System;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
+using glFTPd_Commander.FTP;
 
 namespace glFTPd_Commander.Services
 {
@@ -14,7 +15,7 @@ namespace glFTPd_Commander.Services
         /// </summary>
         public static async Task<FtpClient?> EnsureConnectedAsync(
             FtpClient? client,
-            FTP ftp,
+            GlFtpdClient ftp,
             CancellationToken cancellationToken = default)
         {
             if (client == null || !client.IsConnected)
@@ -43,7 +44,7 @@ namespace glFTPd_Commander.Services
         public static async Task<(string Result, FtpClient? Client)> ExecuteFtpCommandWithReconnectAsync(
             string command,
             FtpClient? client,
-            FTP ftp,
+            GlFtpdClient ftp,
             CancellationToken cancellationToken = default)
         {
             client = await EnsureConnectedAsync(client, ftp, cancellationToken);
@@ -76,7 +77,7 @@ namespace glFTPd_Commander.Services
         public static async Task<(bool Success, FtpClient? Client)> ExecuteFtpCommandOkWithReconnectAsync(
             string command,
             FtpClient? client,
-            FTP ftp,
+            GlFtpdClient ftp,
             CancellationToken cancellationToken = default)
         {
             client = await EnsureConnectedAsync(client, ftp, cancellationToken);
@@ -103,7 +104,7 @@ namespace glFTPd_Commander.Services
         /// </summary>
         public static async Task<(T? Result, FtpClient? Client)> ExecuteWithConnectionAsync<T>(
             FtpClient? client,
-            FTP ftp,
+            GlFtpdClient ftp,
             Func<FtpClient, Task<T?>> operation,
             CancellationToken cancellationToken = default)
         {
@@ -127,7 +128,7 @@ namespace glFTPd_Commander.Services
         }
 
         public static Task<(string? Result, FtpClient? Client)> ExecuteSiteCommandWithConnectionAsync(
-            string command, FtpClient? client, FTP ftp)
+            string command, FtpClient? client, GlFtpdClient ftp)
         {
             return ExecuteWithConnectionAsync(client, ftp, c => Task.Run<string?>(() => ftp.ExecuteCommand(command, c)));
         }

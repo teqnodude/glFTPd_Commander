@@ -1,4 +1,5 @@
 ﻿using FluentFTP;
+using glFTPd_Commander.FTP;
 using glFTPd_Commander.Models;
 using glFTPd_Commander.Services;
 using glFTPd_Commander.Windows;
@@ -10,7 +11,7 @@ namespace glFTPd_Commander.Windows
 {
     public partial class SetAllotmentWindow : BaseWindow
     {
-        private readonly FTP _ftp;
+        private readonly GlFtpdClient _ftp;
         private readonly FtpClient _ftpClient;
         private readonly string _username;
 
@@ -18,7 +19,7 @@ namespace glFTPd_Commander.Windows
         public string Amount => amountText.Text.Trim();
         public string? Unit => (unitsComboBox.SelectedItem as UnitItem)?.Code;
 
-        public SetAllotmentWindow(FTP ftp, FtpClient ftpClient, string username)
+        public SetAllotmentWindow(GlFtpdClient ftp, FtpClient ftpClient, string username)
         {
             InitializeComponent();
             _ftp = ftp;

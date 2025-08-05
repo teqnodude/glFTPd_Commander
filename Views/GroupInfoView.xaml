@@ -41,9 +41,9 @@
                     <Label Content="Leech:"/>
                     <TextBox x:Name="LeechTextBox" PreviewTextInput="ValueInput" GotKeyboardFocus="SelectAllText" ToolTip="-1 = Unlimited, -2 = Disabled" LostFocus="LeechTextBox_LostFocus" Margin="0,0,0,10"/>
 
-					<Button x:Name="groupRemoveButton"
+					<Button x:Name="GroupRemoveButton"
 								Content="Remove Group"
-								Click="groupRemoveButton_Click"
+								Click="GroupRemoveButton_Click"
 								Background="DarkRed"
 								Foreground="White"/>
                 </StackPanel>

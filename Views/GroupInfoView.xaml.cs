@@ -1,4 +1,5 @@
 ﻿using FluentFTP;
+using glFTPd_Commander.FTP;
 using glFTPd_Commander.Services;
 using glFTPd_Commander.Windows;
 using System.Collections.ObjectModel;
@@ -14,7 +15,7 @@ namespace glFTPd_Commander.Views
 {
     public partial class GroupInfoView : BaseUserControl, IUnselectable
     {
-        private FTP? _ftp;
+        private readonly GlFtpdClient? _ftp;
         private FtpClient? _ftpClient;
         private string _group;
         private readonly string _currentUser;
@@ -27,8 +28,9 @@ namespace glFTPd_Commander.Views
         public Action? RequestClose;
         public bool UnselectGroupOnClose { get; private set; } = false;
         public bool UnselectOnEsc => UnselectGroupOnClose;
+        private static readonly string[] LineSplitDelimiters = ["\r\n", "\n"];
 
-        public GroupInfoView(FTP ftp, FtpClient ftpClient, string group, string currentUser)
+        public GroupInfoView(GlFtpdClient ftp, FtpClient ftpClient, string group, string currentUser)
         {
             InitializeComponent();
             _ftp = ftp;
@@ -50,7 +52,7 @@ namespace glFTPd_Commander.Views
         {
             try
             {
-                _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+                _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
                     if (_ftpClient == null) return;
                 
                 GroupNameTextBox.Text = _group;
@@ -69,8 +71,7 @@ namespace glFTPd_Commander.Views
         
                 await LoadUsersAndAdmins(siteGinfoTask.Result);
         
-                var admins = GroupAdminComboBox.ItemsSource as IList<string>;
-                if (admins != null && admins.Count > 0)
+                if (GroupAdminComboBox.ItemsSource is IList<string> admins && admins.Count > 0)
                 {
                     _originalGroupAdmin = admins[0];
                 }
@@ -98,7 +99,7 @@ namespace glFTPd_Commander.Views
             string newValue = control.Text.Trim();
             if (newValue == oldValue?.Trim()) return;  // ← prevent redundant command execution
 
-            _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+            _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
                 if (_ftpClient == null) return;
 
             await _ftp!.ConnectionLock.WaitAsync();
@@ -133,7 +134,7 @@ namespace glFTPd_Commander.Views
 
         private async void GroupNameTextBox_LostFocus(object sender, RoutedEventArgs e)
         {
-            _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+            _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
                 if (_ftpClient == null) return;
 
             string newVal = GroupNameTextBox.Text.Trim();
@@ -180,7 +181,7 @@ namespace glFTPd_Commander.Views
 
         private async void AddButton_Click(object sender, RoutedEventArgs e)
         {
-            _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+            _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
                 if (_ftpClient == null) return;
         
             await _ftp!.ConnectionLock.WaitAsync();
@@ -209,7 +210,7 @@ namespace glFTPd_Commander.Views
         
         private async void RemoveButton_Click(object sender, RoutedEventArgs e)
         {
-            _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+            _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
                 if (_ftpClient == null) return;
         
             await _ftp!.ConnectionLock.WaitAsync();
@@ -239,7 +240,7 @@ namespace glFTPd_Commander.Views
         {
             try
             {
-                _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+                _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
                     if (_ftpClient == null) return;
                 // Get all users (raw) in the group from GINFO
                 var allUsers = ParseAllUsersFromGinfo(ginfoResponse);
@@ -273,45 +274,45 @@ namespace glFTPd_Commander.Views
             }
         }
 
-        private GroupInfo ParseGroupInfo(string response)
+        private static GroupInfo ParseGroupInfo(string response)
         {
             var info = new GroupInfo();
 
-            var groupCommentMatch = Regex.Match(response, @"Group Comment:\s*(.*?)\r?\n");
+            var groupCommentMatch = GroupCommentRegex().Match(response);
             if (groupCommentMatch.Success)
                 info.GroupComment = groupCommentMatch.Groups[1].Value.Trim();
 
-            var slotsMatch = Regex.Match(response, @"Number of slots left:\s*(.*?)\s*\(");
+            var slotsMatch = SlotsLeftRegex().Match(response);
             if (slotsMatch.Success)
                 info.SlotsLeft = slotsMatch.Groups[1].Value.Trim();
 
-            var leechMatch = Regex.Match(response, @"Number of leech slots left:\s*(.*?)\s*\(");
+            var leechMatch = LeechSlotsLeftRegex().Match(response);
             if (leechMatch.Success)
                 info.LeechSlotsLeft = leechMatch.Groups[1].Value.Trim();
 
-            var allotMatch = Regex.Match(response, @"Number of allotment slots left:\s*(.*?)\s*\(");
+            var allotMatch = AllotmentSlotsLeftRegex().Match(response);
             if (allotMatch.Success)
                 info.AllotmentSlotsLeft = allotMatch.Groups[1].Value.Trim();
 
-            var maxAllotMatch = Regex.Match(response, @"Max\. allotment size:\s*(.*?)\s*\(");
+            var maxAllotMatch = MaxAllotmentSizeRegex().Match(response);
             if (maxAllotMatch.Success)
                 info.MaxAllotmentSize = maxAllotMatch.Groups[1].Value.Trim();
 
-            var maxLoginsMatch = Regex.Match(response, @"Max simultaneous logins:\s*(.*?)\s*\(");
+            var maxLoginsMatch = MaxSimultaneousLoginsRegex().Match(response);
             if (maxLoginsMatch.Success)
                 info.MaxSimultaneousLogins = maxLoginsMatch.Groups[1].Value.Trim();
 
             return info;
         }
 
-        private string ParseGroupDescription(string response, string targetGroup)
+        private static string ParseGroupDescription(string response, string targetGroup)
         {
-            var lines = response.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries)
+            var lines = response.Split(LineSplitDelimiters, StringSplitOptions.RemoveEmptyEntries)
                 .Where(line => line.Contains(")  "));
 
             foreach (var line in lines)
             {
-                var match = Regex.Match(line, @"\(.*?\)\s+([^\s]+)\s+(.*)$");
+                var match = GroupDescriptionRegex().Match(line);
                 if (match.Success && match.Groups[1].Value.Equals(targetGroup, StringComparison.OrdinalIgnoreCase))
                 {
                     return match.Groups[2].Value.Trim();
@@ -331,7 +332,7 @@ namespace glFTPd_Commander.Views
             MaxLoginsTextBox.Text = info.MaxSimultaneousLogins;
         }
 
-        private string FormatSize(string raw)
+        private static string FormatSize(string raw)
         {
             if (string.Equals(raw, "Unlimited", StringComparison.OrdinalIgnoreCase))
             return raw;
@@ -352,12 +353,13 @@ namespace glFTPd_Commander.Views
         }
 
 
-        private (List<string> allUsers, List<string> admins) ParseAllUserDataFromGinfo(string response)
+        private static (List<string> allUsers, List<string> admins) ParseAllUserDataFromGinfo(string response)
         {
             var allUsers = new List<string>();
             var admins = new List<string>();
-        
-            var lines = response.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
+                    
+            var lines = response.Split(LineSplitDelimiters, StringSplitOptions.RemoveEmptyEntries);
+
         
             foreach (var line in lines)
             {
@@ -379,18 +381,18 @@ namespace glFTPd_Commander.Views
                 allUsers.Add(cleanName);
         
                 // Add to admins if it has * or +
-                if (usernameRaw.StartsWith("+") || usernameRaw.StartsWith("*"))
+                if (usernameRaw.StartsWith('+') || usernameRaw.StartsWith('*'))
                     admins.Add(cleanName);
             }
         
             return (allUsers.Distinct().ToList(), admins.Distinct().ToList());
         }
 
-        private List<string> ParseAllUsersFromGinfo(string response)
+        private static List<string> ParseAllUsersFromGinfo(string response)
         {
             var users = new List<string>();
         
-            var lines = response.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
+            var lines = response.Split(LineSplitDelimiters, StringSplitOptions.RemoveEmptyEntries);
         
             foreach (var line in lines)
             {
@@ -408,14 +410,12 @@ namespace glFTPd_Commander.Views
                 users.Add(cleanName);
             }
         
-            return users.Distinct().ToList();
+            return [.. users.Distinct()];
         }
 
-
-
-        private async void groupRemoveButton_Click(object sender, RoutedEventArgs e)
+        private async void GroupRemoveButton_Click(object sender, RoutedEventArgs e)
         {
-            _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+            _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
                 if (_ftpClient == null) return;
 
             var confirm = MessageBox.Show(
@@ -481,7 +481,7 @@ namespace glFTPd_Commander.Views
 
         private async void SetMaxAllotButton_Click(object sender, RoutedEventArgs e)
         {
-            _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+            _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
                 if (_ftpClient == null) return;
 
             var win = new SetMaxAllotWindow(_ftp!, _ftpClient!, _group)
@@ -513,6 +513,28 @@ namespace glFTPd_Commander.Views
             glFTPd_Commander.Utils.InputUtils.DigitsOrNegative(sender, e);
         }
 
+        [GeneratedRegex(@"Group Comment:\s*(.*?)\r?\n")]
+        private static partial Regex GroupCommentRegex();
+
+        [GeneratedRegex(@"Number of slots left:\s*(.*?)\s*\(")]
+        private static partial Regex SlotsLeftRegex();
+
+        [GeneratedRegex(@"Number of leech slots left:\s*(.*?)\s*\(")]
+        private static partial Regex LeechSlotsLeftRegex();
+
+        [GeneratedRegex(@"Number of allotment slots left:\s*(.*?)\s*\(")]
+        private static partial Regex AllotmentSlotsLeftRegex();
+
+        [GeneratedRegex(@"Max\. allotment size:\s*(.*?)\s*\(")]
+        private static partial Regex MaxAllotmentSizeRegex();
+
+        [GeneratedRegex(@"Max simultaneous logins:\s*(.*?)\s*\(")]
+        private static partial Regex MaxSimultaneousLoginsRegex();
+
+        [GeneratedRegex(@"\(.*?\)\s+([^\s]+)\s+(.*)$")]
+        private static partial Regex GroupDescriptionRegex();
+
+
     }
 
     public class GroupInfo
@@ -526,10 +548,4 @@ namespace glFTPd_Commander.Views
         public string MaxSimultaneousLogins { get; set; } = string.Empty;
     }
 
-    public class GroupMemberInfo
-    {
-        public string Name { get; set; } = "";
-        public bool IsSiteOp { get; set; }
-        public bool IsGroupAdmin { get; set; }
-    }
 }

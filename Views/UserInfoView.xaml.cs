@@ -1,4 +1,5 @@
 ﻿using FluentFTP;
+using glFTPd_Commander.FTP;
 using glFTPd_Commander.Services;
 using glFTPd_Commander.Windows;
 using System.Text.RegularExpressions;
@@ -12,7 +13,7 @@ namespace glFTPd_Commander.Views
 {
     public partial class UserInfoView : BaseUserControl, IUnselectable
     {
-        private FTP? _ftp;
+        private readonly GlFtpdClient? _ftp;
         private FtpClient? _ftpClient;
         private string _username;
         private readonly string _currentUser;
@@ -24,8 +25,9 @@ namespace glFTPd_Commander.Views
         public Action? RequestClose { get; set; }
         public bool UnselectUserOnClose { get; private set; } = false;
         public bool UnselectOnEsc => UnselectUserOnClose;
+        private static readonly char[] LineCharDelimiters = ['\n', '\r'];
 
-        public UserInfoView(FTP ftp, FtpClient ftpClient, string username, string currentUser)
+        public UserInfoView(GlFtpdClient ftp, FtpClient ftpClient, string username, string currentUser)
         {
             InitializeComponent();
             _ftp = ftp;
@@ -43,7 +45,7 @@ namespace glFTPd_Commander.Views
             try
             {
                 ResetAllFields();
-                _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+                _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
                     if (_ftpClient == null) return;
 
                 var (userDetails, updatedClient) = await FtpBase.ExecuteWithConnectionAsync(
@@ -60,17 +62,17 @@ namespace glFTPd_Commander.Views
                 usernameText.Text = userDetails.Username;
                 flagsText.Text = userDetails.Flags ?? string.Empty;
 
-                if ((userDetails.Flags ?? "").Contains("6"))
+                if ((userDetails.Flags ?? "").Contains('6'))
                 {
-                    userPurge.Visibility = Visibility.Visible;
-                    userReAdd.Visibility = Visibility.Visible;
-                    userRemove.Visibility = Visibility.Collapsed;
+                    UserPurge.Visibility = Visibility.Visible;
+                    UserReAdd.Visibility = Visibility.Visible;
+                    UserRemove.Visibility = Visibility.Collapsed;
                 }
                 else
                 {
-                    userPurge.Visibility = Visibility.Collapsed;
-                    userReAdd.Visibility = Visibility.Collapsed;
-                    userRemove.Visibility = Visibility.Visible;
+                    UserPurge.Visibility = Visibility.Collapsed;
+                    UserReAdd.Visibility = Visibility.Collapsed;
+                    UserRemove.Visibility = Visibility.Visible;
                 }
 
                 var restrictions = userDetails.IpRestrictions
@@ -79,11 +81,12 @@ namespace glFTPd_Commander.Views
                     .ToList();
                 addIpButton.IsEnabled = restrictions.Count < 10;
                 ipRestrictionsList.ItemsSource = restrictions;
-                noRestrictionsText.Visibility = restrictions.Any() ? Visibility.Collapsed : Visibility.Visible;
+                noRestrictionsText.Visibility = restrictions.Count > 0 ? Visibility.Collapsed : Visibility.Visible;
+
 
                 // Get all groups (with connection safety)
                 var (allGroups, groupsUpdatedClient) = await FtpBase.ExecuteWithConnectionAsync(
-                    _ftpClient, _ftp!, c => Task.Run(() => (List<FTP.FtpGroup>?)_ftp!.GetGroups(c))
+                    _ftpClient, _ftp!, c => Task.Run(() => (List<GlFtpdClient.FtpGroup>?)_ftp!.GetGroups(c))
                 );
                 _ftpClient = groupsUpdatedClient;
 
@@ -98,7 +101,7 @@ namespace glFTPd_Commander.Views
 
                 //userGroupsList.ItemsSource = userDetails.Groups.OrderBy(g => g.TrimStart('*', '+')).ToList();
                 userGroupsList.ItemsSource = userDetails.Groups
-                    .Select(g => g.StartsWith("*") ? "+" + g.Substring(1) : g) // Replace * with +
+                    .Select(g => g.StartsWith('*') ? string.Concat("+", g.AsSpan(1)) : g) // Replace * with +
                     .OrderBy(g => g.TrimStart('+'))
                     .ToList();
 
@@ -211,7 +214,7 @@ namespace glFTPd_Commander.Views
                 ["Tagline"] = (taglineText, v => _oldTagline = v)
             };
 
-            var lines = response.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)
+            var lines = response.Split(LineCharDelimiters, StringSplitOptions.RemoveEmptyEntries)
                 .Where(line => line.StartsWith("200-")).Select(l => l[4..].Trim());
 
             foreach (var line in lines)
@@ -224,7 +227,7 @@ namespace glFTPd_Commander.Views
                     continue;
                 }
             
-                string normalizedLine = Regex.Replace(line.Trim('|').Trim(), @" {2,}", "~");
+                string normalizedLine = MultiSpaceRegex().Replace(line.Trim('|').Trim(), "~");
             
                 // Explicit handling of multi-field lines
                 if (normalizedLine.Contains("Max Upload Speed") ||
@@ -235,7 +238,7 @@ namespace glFTPd_Commander.Views
                 {
                     foreach (string part in normalizedLine.Split('~'))
                     {
-                        var m = Regex.Match(part, @"^(?<key>.+?):\s*(?<val>.+)$");
+                        var m = KeyValueRegex().Match(part);
                         if (m.Success)
                         {
                             string key = m.Groups["key"].Value.Trim();
@@ -243,7 +246,7 @@ namespace glFTPd_Commander.Views
             
                             if (fieldMap.TryGetValue(key, out var entry))
                             {
-                                string cleanedVal = Regex.Replace(val, @"\s*\([^)]*\)", "").Trim();
+                                string cleanedVal = ParenCleanupRegex().Replace(val, "").Trim();
                                 if (key.Equals("Time Limit", StringComparison.OrdinalIgnoreCase))
                                     cleanedVal = cleanedVal.Replace("minutes", "", StringComparison.OrdinalIgnoreCase).Replace(".", "").Trim();
             
@@ -256,14 +259,14 @@ namespace glFTPd_Commander.Views
                 else
                 {
                     // Default regex-based parsing for normal lines
-                    foreach (Match m in Regex.Matches(normalizedLine, @"(?<key>[^:~]+):\s*(?<val>[^~]*)"))
+                    foreach (Match m in MultiKeyValueRegex().Matches(normalizedLine))
                     {
                         string key = m.Groups["key"].Value.Trim();
                         string val = m.Groups["val"].Value.Trim();
             
                         if (fieldMap.TryGetValue(key, out var entry))
                         {
-                            string cleanedVal = Regex.Replace(val, @"\s*\([^)]*\)", "").Trim();
+                            string cleanedVal = ParenCleanupRegex().Replace(val, "").Trim();
                             if (key.Equals("Time Limit", StringComparison.OrdinalIgnoreCase))
                                 cleanedVal = cleanedVal.Replace("minutes", "", StringComparison.OrdinalIgnoreCase).Replace(".", "").Trim();
                             else if (key.Equals("Tagline", StringComparison.OrdinalIgnoreCase))
@@ -304,11 +307,11 @@ namespace glFTPd_Commander.Views
 
         }
 
-        private string ParseRatioValue(string val)
+        private static string ParseRatioValue(string val)
         {
             if (string.IsNullOrWhiteSpace(val)) return "";
             if (val.Equals("Unlimited", StringComparison.OrdinalIgnoreCase)) return "Unlimited";
-            var match = Regex.Match(val, "1:(\\d+)");
+            var match = RatioRegex().Match(val);
             return match.Success ? match.Groups[1].Value : int.TryParse(val, out _) ? val : "";
         }
 
@@ -332,7 +335,7 @@ namespace glFTPd_Commander.Views
             var added = newFlags.Except(_oldFlags ?? "");
             var removed = (_oldFlags ?? "").Except(newFlags);
 
-            _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+            _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
                 if (_ftpClient == null) return;
 
             await _ftp!.ConnectionLock.WaitAsync();
@@ -371,7 +374,7 @@ namespace glFTPd_Commander.Views
             string newVal = ParseRatioValue(ratiosText.Text.Trim());
             if (_oldRatios == newVal || string.IsNullOrEmpty(newVal)) return;
 
-            _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+            _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
                 if (_ftpClient == null) return;
 
             await _ftp!.ConnectionLock.WaitAsync();
@@ -412,7 +415,7 @@ namespace glFTPd_Commander.Views
                 return;
             }
 
-            _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+            _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
                 if (_ftpClient == null) return;
 
             await _ftp!.ConnectionLock.WaitAsync();
@@ -439,7 +442,7 @@ namespace glFTPd_Commander.Views
             string newVal = idleTimeText.Text.Trim();
             if (_oldIdleTime == newVal || !int.TryParse(newVal, out int minutes)) return;
 
-            _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+            _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
                 if (_ftpClient == null) return;
 
             await _ftp!.ConnectionLock.WaitAsync();
@@ -476,7 +479,7 @@ namespace glFTPd_Commander.Views
                 return;
             }
 
-            _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+            _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
                 if (_ftpClient == null) return;
 
             await _ftp!.ConnectionLock.WaitAsync();
@@ -508,7 +511,7 @@ namespace glFTPd_Commander.Views
             string newVal = maxLoginsText.Text.Trim();
             if (_oldMaxLogins == newVal || !int.TryParse(newVal, out _)) return;
 
-            _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+            _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
                 if (_ftpClient == null) return;
 
             await _ftp!.ConnectionLock.WaitAsync();
@@ -535,7 +538,7 @@ namespace glFTPd_Commander.Views
             string newVal = fromSameIpText.Text.Trim();
             if (_oldFromSameIp == newVal || !int.TryParse(newVal, out _)) return;
 
-            _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+            _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
                 if (_ftpClient == null) return;
 
             await _ftp!.ConnectionLock.WaitAsync();
@@ -562,7 +565,7 @@ namespace glFTPd_Commander.Views
             string newVal = taglineText.Text.Trim();
             if (_oldTagline == newVal) return;
 
-            _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+            _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
                 if (_ftpClient == null) return;
 
             await _ftp!.ConnectionLock.WaitAsync();
@@ -589,7 +592,7 @@ namespace glFTPd_Commander.Views
             string newVal = userCommentText.Text.Trim();
             if (_oldUserComment == newVal) return;
 
-            _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+            _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
                 if (_ftpClient == null) return;
 
             await _ftp!.ConnectionLock.WaitAsync();
@@ -616,7 +619,7 @@ namespace glFTPd_Commander.Views
             string newVal = maxSimUploadsText.Text.Trim();
             if (_oldMaxSimUploads == newVal || !int.TryParse(newVal, out _)) return;
 
-            _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+            _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
                 if (_ftpClient == null) return;
 
             await _ftp!.ConnectionLock.WaitAsync();
@@ -643,7 +646,7 @@ namespace glFTPd_Commander.Views
             string newVal = maxSimDownloadsText.Text.Trim();
             if (_oldMaxSimDownloads == newVal || !int.TryParse(newVal, out _)) return;
             
-            _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+            _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
                 if (_ftpClient == null) return;
 
             await _ftp!.ConnectionLock.WaitAsync();
@@ -669,7 +672,7 @@ namespace glFTPd_Commander.Views
         {
             if (availableGroupsList.SelectedItems.Count > 0)
             {
-                _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+                _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
                 if (_ftpClient == null) return;
         
                 await _ftp!.ConnectionLock.WaitAsync();
@@ -707,7 +710,7 @@ namespace glFTPd_Commander.Views
             if (userGroupsList.SelectedItems.Count == 0)
                 return;
         
-            _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+            _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
             if (_ftpClient == null) return;
         
             await _ftp!.ConnectionLock.WaitAsync();
@@ -719,7 +722,7 @@ namespace glFTPd_Commander.Views
                     string? error = null;
         
                     // If group is a group admin, remove admin status first
-                    if (group.StartsWith("+"))
+                    if (group.StartsWith('+'))
                     {
                         string resultAdmin = await Task.Run(() => _ftp!.ExecuteCommand($"SITE CHGADMIN {_username} {groupName}", _ftpClient));
                         if (resultAdmin.Contains("Error"))
@@ -766,7 +769,7 @@ namespace glFTPd_Commander.Views
             {
                 string ipNumber = selectedIp.Key.Replace("IP", "");
 
-                _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+                _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
                     if (_ftpClient == null) return;
 
                 await _ftp!.ConnectionLock.WaitAsync();
@@ -796,7 +799,7 @@ namespace glFTPd_Commander.Views
         
         private async void AddIpButton_Click(object sender, RoutedEventArgs e)
         {
-            _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+            _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
                 if (_ftpClient == null) return;
 
             var addIpWindow = new AddIpWindow
@@ -831,7 +834,7 @@ namespace glFTPd_Commander.Views
         
         private async void AddCreditsButton_Click(object sender, RoutedEventArgs e)
         {
-            _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+            _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
                 if (_ftpClient == null) return;
         
             var window = new CreditAdjustWindow(_ftp!, _ftpClient!, _username, "GIVE")
@@ -847,7 +850,7 @@ namespace glFTPd_Commander.Views
         
         private async void TakeCreditsButton_Click(object sender, RoutedEventArgs e)
         {
-            _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+            _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
                 if (_ftpClient == null) return;
         
             var window = new CreditAdjustWindow(_ftp!, _ftpClient!, _username, "TAKE")
@@ -861,9 +864,9 @@ namespace glFTPd_Commander.Views
         }
 
 
-        private async void userReAdd_Click(object sender, RoutedEventArgs e)
+        private async void UserReAdd_Click(object sender, RoutedEventArgs e)
         {
-            _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+            _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
                 if (_ftpClient == null) return;
 
             await _ftp!.ConnectionLock.WaitAsync();
@@ -883,12 +886,12 @@ namespace glFTPd_Commander.Views
             }
         }
         
-        private async void userRemove_Click(object sender, RoutedEventArgs e)
+        private async void UserRemove_Click(object sender, RoutedEventArgs e)
         {
-            _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+            _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
                 if (_ftpClient == null) return;
 
-            if ((flagsText.Text ?? "").Contains("1"))
+            if ((flagsText.Text ?? "").Contains('1'))
             {
                 MessageBox.Show(
                     $"You are trying to remove a SiteOP = (flag 1). Please remove the flag 1 manually from the shell from ftp-data/users/{_username}.",
@@ -917,9 +920,9 @@ namespace glFTPd_Commander.Views
             }
         }
         
-        private async void userPurge_Click(object sender, RoutedEventArgs e)
+        private async void UserPurge_Click(object sender, RoutedEventArgs e)
         {
-            _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+            _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
                 if (_ftpClient == null) return;
 
             await _ftp!.ConnectionLock.WaitAsync();
@@ -944,7 +947,7 @@ namespace glFTPd_Commander.Views
             string newVal = timeLimitText.Text.Trim();
             if (_oldTimeLimit == newVal) return;
         
-            _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+            _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
                 if (_ftpClient == null) return;
         
             await _ftp!.ConnectionLock.WaitAsync();
@@ -974,7 +977,7 @@ namespace glFTPd_Commander.Views
             string newVal = timeframeText.Text.Trim();
             if (_oldTimeframe == newVal) return;
         
-            _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+            _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
                 if (_ftpClient == null) return;
         
             await _ftp!.ConnectionLock.WaitAsync();
@@ -1001,7 +1004,7 @@ namespace glFTPd_Commander.Views
 
         private async void SetAllotmentButton_Click(object sender, RoutedEventArgs e)
         {
-            _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+            _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
                 if (_ftpClient == null) return;
         
             var setAllotmentWindow = new SetAllotmentWindow(_ftp!, _ftpClient!, _username)
@@ -1018,7 +1021,7 @@ namespace glFTPd_Commander.Views
 
         private async void SetMaxUploadSpeed_Click(object sender, RoutedEventArgs e)
         {
-            _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+            _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
                 if (_ftpClient == null) return;
 
             var win = new SetSpeedWindow(_ftp!, _ftpClient!, _username, "max_ulspeed")
@@ -1035,7 +1038,7 @@ namespace glFTPd_Commander.Views
         
         private async void SetMaxDownloadSpeed_Click(object sender, RoutedEventArgs e)
         {
-            _ftpClient = await FTP.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+            _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
                 if (_ftpClient == null) return;
 
             var win = new SetSpeedWindow(_ftp!, _ftpClient!, _username, "max_dlspeed")
@@ -1070,5 +1073,20 @@ namespace glFTPd_Commander.Views
         {
             glFTPd_Commander.Utils.InputUtils.DigitsAndLettersOnly(sender, e);
         }
+
+        [GeneratedRegex(@" {2,}")]
+        private static partial Regex MultiSpaceRegex();
+        
+        [GeneratedRegex(@"^(?<key>.+?):\s*(?<val>.+)$")]
+        private static partial Regex KeyValueRegex();
+        
+        [GeneratedRegex(@"\s*\([^)]*\)")]
+        private static partial Regex ParenCleanupRegex();
+        
+        [GeneratedRegex(@"(?<key>[^:~]+):\s*(?<val>[^~]*)")]
+        private static partial Regex MultiKeyValueRegex();
+        
+        [GeneratedRegex(@"1:(\d+)")]
+        private static partial Regex RatioRegex();
     }
 }

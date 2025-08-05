@@ -10,7 +10,7 @@ using System.Windows;
 
 namespace glFTPd_Commander.Utils
 {
-    public static class UpdateChecker
+    public static partial class UpdateChecker
     {
         private class VersionInfo
         {
@@ -118,8 +118,8 @@ namespace glFTPd_Commander.Utils
             string preA = partsA[1];
             string preB = partsB[1];
 
-            var aTokens = Regex.Split(preA, @"[\.\-]");
-            var bTokens = Regex.Split(preB, @"[\.\-]");
+            var aTokens = DotsOrDashesRegex().Split(preA);
+            var bTokens = DotsOrDashesRegex().Split(preB);
 
             for (int i = 0; i < Math.Max(aTokens.Length, bTokens.Length); i++)
             {
@@ -171,7 +171,7 @@ namespace glFTPd_Commander.Utils
                     return;
                 }
         
-                int parentPid = Process.GetCurrentProcess().Id;
+                int parentPid = Environment.ProcessId;
         
                 var startInfo = new ProcessStartInfo
                 {
@@ -265,6 +265,8 @@ namespace glFTPd_Commander.Utils
             }
         }
 
+        [GeneratedRegex(@"[\.\-]")]
+        private static partial Regex DotsOrDashesRegex();
 
     }
 }

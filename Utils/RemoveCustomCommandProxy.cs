@@ -1,7 +1,7 @@
 ﻿using System.Windows;
 using System.Windows.Input;
 
-namespace glFTPd_Commander
+namespace glFTPd_Commander.Utils
 {
     public class RemoveCustomCommandProxy : Freezable
     {

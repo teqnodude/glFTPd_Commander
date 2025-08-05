@@ -3,19 +3,11 @@ using System.Windows.Input;
 
 namespace glFTPd_Commander.Utils
 {
-    public class RelayCommand<T> : ICommand
+    public class RelayCommand<T>(Action<T> execute, Predicate<T>? canExecute = null) : ICommand
     {
-        private readonly Action<T> _execute;
-        private readonly Predicate<T>? _canExecute;
+        public bool CanExecute(object? parameter) => canExecute?.Invoke((T)parameter!) ?? true;
+        public void Execute(object? parameter) => execute((T)parameter!);
 
-        public RelayCommand(Action<T> execute, Predicate<T>? canExecute = null)
-        {
-            _execute = execute ?? throw new ArgumentNullException(nameof(execute));
-            _canExecute = canExecute;
-        }
-
-        public bool CanExecute(object? parameter) => _canExecute?.Invoke((T)parameter!) ?? true;
-        public void Execute(object? parameter) => _execute((T)parameter!);
         public event EventHandler? CanExecuteChanged
         {
             add { CommandManager.RequerySuggested += value!; }

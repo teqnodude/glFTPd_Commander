@@ -5,7 +5,7 @@ using System.Windows.Input;
 
 namespace glFTPd_Commander.Utils
 {
-    public static class InputUtils
+    public static partial class InputUtils
     {
         // Use as event handler for TextCompositionEventArgs
         public static void DigitsOnly(object sender, TextCompositionEventArgs e)
@@ -28,7 +28,7 @@ namespace glFTPd_Commander.Utils
                 string newText = text.Remove(selectionStart, selectionLength)
                                      .Insert(selectionStart, e.Text);
         
-                if (System.Text.RegularExpressions.Regex.IsMatch(newText, @"^-?\d+$"))
+                if (IntegerRegex().IsMatch(newText))
                 {
                     e.Handled = false;
                     return;
@@ -63,7 +63,7 @@ namespace glFTPd_Commander.Utils
                 }
 
                 // Allow digits and up to two dashes, like "YYYY-MM-DD"
-                if (Regex.IsMatch(newText, @"^\d{0,4}-?\d{0,2}-?\d{0,2}$"))
+                if (PartialDateRegex().IsMatch(newText))
                 {
                     e.Handled = false;
                     return;
@@ -79,13 +79,21 @@ namespace glFTPd_Commander.Utils
                 return true;
 
             // Must match "YYYY-MM-DD" and be a valid date
-            if (Regex.IsMatch(input, @"^\d{4}-\d{2}-\d{2}$"))
+            if (FullDateRegex().IsMatch(input))
             {
-                DateTime dt;
-                return DateTime.TryParseExact(input, "yyyy-MM-dd", null, System.Globalization.DateTimeStyles.None, out dt);
+                return DateTime.TryParseExact(input, "yyyy-MM-dd", null, System.Globalization.DateTimeStyles.None, out _);
             }
 
             return false;
         }
+
+        [GeneratedRegex(@"^-?\d+$")]
+        private static partial Regex IntegerRegex();
+        
+        [GeneratedRegex(@"^\d{0,4}-?\d{0,2}-?\d{0,2}$")]
+        private static partial Regex PartialDateRegex();
+        
+        [GeneratedRegex(@"^\d{4}-\d{2}-\d{2}$")]
+        private static partial Regex FullDateRegex();
     }
 }
