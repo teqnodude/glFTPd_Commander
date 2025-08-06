@@ -9,7 +9,7 @@
     <Grid Margin="20">
         <StackPanel>
             <TextBlock Text="glFTPd Commander" FontWeight="Bold" FontSize="16" Margin="0,0,0,10"/>
-            <TextBlock Text="Version: 1.0.0-rc3" Margin="0,0,0,10"/>
+            <TextBlock Text="Version: 1.0.0-rc4" Margin="0,0,0,10"/>
             <TextBlock Text="Author: teqnodude" Margin="0,0,0,10"/>
             <TextBlock Text="Project URL:" FontWeight="Bold"/>
             <TextBlock>

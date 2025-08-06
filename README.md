@@ -10,16 +10,16 @@ It comes with a built-in update checker that triggers a background update progra
 ## Screenshots
 
 ### Main
-<img width="1920" height="1032" alt="Image" src="https://github.com/user-attachments/assets/92acb3f5-39fe-4019-9e66-7bbc8a0eaa70" />
+<img width="1920" height="1031" alt="Image" src="https://github.com/user-attachments/assets/add1ba1a-ddc9-4ba3-baac-f1e0b29a5bbd" />
 
 ### Settings
-<img width="332" height="665" alt="Image" src="https://github.com/user-attachments/assets/cea20aed-a297-41b7-ac9e-465846b90d74" />
+<img width="332" height="665" alt="Image" src="https://github.com/user-attachments/assets/5c736a44-0f28-4c08-9b7b-84f3fccca7f3" />
 
 ### User
-<img width="1920" height="1032" alt="Image" src="https://github.com/user-attachments/assets/9c29cc9f-8ac1-46b9-85fb-9a9980191097" />
+<img width="1920" height="1032" alt="Image" src="https://github.com/user-attachments/assets/8abbbccd-13ad-4204-afcb-736af95c7811" />
 
 ### Group
-<img width="1920" height="1032" alt="Image" src="https://github.com/user-attachments/assets/6ace3ace-c1ac-425d-a85a-c765afb0e9a8" />
+<img width="1920" height="1032" alt="Image" src="https://github.com/user-attachments/assets/1aa98400-a2b6-4d87-acb6-cfee2099af7d" />
 
 ### Custom Commands
-<img width="1920" height="1032" alt="Image" src="https://github.com/user-attachments/assets/ecdbbfed-0329-4634-85fb-65966eef5c68" />
+<img width="1920" height="1032" alt="Image" src="https://github.com/user-attachments/assets/187132c5-735e-44c3-af48-a5ea57afbf86" />
