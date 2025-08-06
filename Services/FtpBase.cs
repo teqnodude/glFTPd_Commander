@@ -102,19 +102,15 @@ namespace glFTPd_Commander.Services
         /// <summary>
         /// Runs any custom FTP operation (with result), ensuring a working connection. Returns (result, updated client).
         /// </summary>
-        public static async Task<(T? Result, FtpClient? Client)> ExecuteWithConnectionAsync<T>(
+        public static async Task<(T Result, FtpClient? Client)> ExecuteWithConnectionAsync<T>(
             FtpClient? client,
             GlFtpdClient ftp,
-            Func<FtpClient, Task<T?>> operation,
+            Func<FtpClient, Task<T>> operation,
             CancellationToken cancellationToken = default)
         {
             client = await EnsureConnectedAsync(client, ftp, cancellationToken);
-            if (client == null)
-            {
-                Debug.WriteLine("[FtpBase] Custom operation failed: lost connection.");
-                return (default, null);
-            }
-
+            if (client == null) return (default!, null);
+        
             try
             {
                 var result = await operation(client);
@@ -123,15 +119,8 @@ namespace glFTPd_Commander.Services
             catch (Exception ex)
             {
                 Debug.WriteLine($"[FtpBase] ExecuteWithConnectionAsync failed: {ex}");
-                return (default, client);
+                return (default!, client);
             }
         }
-
-        public static Task<(string? Result, FtpClient? Client)> ExecuteSiteCommandWithConnectionAsync(
-            string command, FtpClient? client, GlFtpdClient ftp)
-        {
-            return ExecuteWithConnectionAsync(client, ftp, c => Task.Run<string?>(() => ftp.ExecuteCommand(command, c)));
-        }
-
     }
 }

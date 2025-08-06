@@ -12,12 +12,10 @@ namespace glFTPd_Commander.Windows
     public partial class CreditAdjustWindow : BaseWindow
     {
         private readonly GlFtpdClient _ftp;
-        private readonly FtpClient _ftpClient;
+        private FtpClient? _ftpClient;
         private readonly string _username;
         private readonly string _operation; // GIVE or TAKE
         public string OperationName => _operation.Equals("GIVE", StringComparison.OrdinalIgnoreCase) ? "Add" : "Remove";
-
-
         public string Amount => amountText.Text.Trim();
         public string? Unit => (unitsComboBox.SelectedItem as UnitItem)?.Code;
 
@@ -50,7 +48,8 @@ namespace glFTPd_Commander.Windows
             await _ftp.ConnectionLock.WaitAsync();
             try
             {
-                var reply = await Task.Run(() => _ftp.ExecuteCommand(command, _ftpClient));
+                var (reply, updatedClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync(command, _ftpClient, _ftp);
+                _ftpClient = updatedClient;
                 if (reply.Contains("Error", StringComparison.OrdinalIgnoreCase))
                 {
                     MessageBox.Show($"Failed to {_operation.ToLower()} credits: {reply}", "Error",

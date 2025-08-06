@@ -57,19 +57,17 @@ namespace glFTPd_Commander.Views
                 
                 GroupNameTextBox.Text = _group;
         
-                var siteGrpTask = Task.Run(() => _ftp!.ExecuteCommand($"SITE GRP {_group}", _ftpClient!));
-                var siteGroupsTask = Task.Run(() => _ftp!.ExecuteCommand("SITE GROUPS", _ftpClient!));
-                var siteGinfoTask = Task.Run(() => _ftp!.ExecuteCommand($"SITE GINFO {_group}", _ftpClient!));
+                (var siteGrpTask, _ftpClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync($"SITE GRP {_group}", _ftpClient, _ftp!);
+                (var siteGroupsTask, _ftpClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync("SITE GROUPS", _ftpClient, _ftp!);
+                (var siteGinfoTask, _ftpClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync($"SITE GINFO {_group}", _ftpClient, _ftp!);
         
-                await Task.WhenAll(siteGrpTask, siteGroupsTask, siteGinfoTask);
-        
-                _originalDescription = ParseGroupDescription(siteGroupsTask.Result, _group);
+                _originalDescription = ParseGroupDescription(siteGroupsTask, _group);
                 DescriptionTextBox.Text = _originalDescription;
-        
-                _originalInfo = ParseGroupInfo(siteGrpTask.Result);
+
+                _originalInfo = ParseGroupInfo(siteGrpTask);
                 UpdateUiFromGroupInfo(_originalInfo);
-        
-                await LoadUsersAndAdmins(siteGinfoTask.Result);
+
+                await LoadUsersAndAdmins(siteGinfoTask);
         
                 if (GroupAdminComboBox.ItemsSource is IList<string> admins && admins.Count > 0)
                 {
@@ -105,7 +103,8 @@ namespace glFTPd_Commander.Views
             await _ftp!.ConnectionLock.WaitAsync();
             try
             {
-                string result = await Task.Run(() => _ftp.ExecuteCommand(command, _ftpClient));
+                var (result, updatedClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync(command, _ftpClient, _ftp);
+                _ftpClient = updatedClient;
                 if (result.Contains("Error"))
                 {
                     MessageBox.Show($"Error applying change: {result}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
@@ -117,7 +116,7 @@ namespace glFTPd_Commander.Views
                 await ReloadGroupDetails();
                 GroupChanged?.Invoke();
 
-                if (!_ftpClient.IsConnected)
+                if (!_ftpClient!.IsConnected)
                 {
                     MessageBox.Show("The connection to the FTP server was lost.", "Disconnected", MessageBoxButton.OK, MessageBoxImage.Error);
                     // Optional: trigger UI disconnect flow or reconnect logic here.
@@ -143,7 +142,8 @@ namespace glFTPd_Commander.Views
             await _ftp!.ConnectionLock.WaitAsync();
             try
             {
-                string result = await Task.Run(() => _ftp.ExecuteCommand($"SITE GRPREN {_group} {newVal}", _ftpClient));
+                var (result, updatedClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync($"SITE GRPREN {_group} {newVal}", _ftpClient, _ftp);
+                _ftpClient = updatedClient;
                 if (result.Contains("Error"))
                     throw new Exception(result);
 
@@ -190,7 +190,8 @@ namespace glFTPd_Commander.Views
                 foreach (var user in AvailableUsersComboBox.SelectedItems.Cast<string>().ToList())
                 {
                     string cleanUser = user.TrimStart('*', '+');
-                    string result = await Task.Run(() => _ftp.ExecuteCommand($"SITE CHGADMIN {cleanUser} {_group}", _ftpClient));
+                    var (result, updatedClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync($"SITE CHGADMIN {cleanUser} {_group}", _ftpClient, _ftp);
+                    _ftpClient = updatedClient;
                     if (result.Contains("Error"))
                     {
                         MessageBox.Show($"Error adding user to group: {result}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
@@ -219,7 +220,8 @@ namespace glFTPd_Commander.Views
                 foreach (var user in GroupAdminComboBox.SelectedItems.Cast<string>().ToList())
                 {
                     string cleanUser = user.TrimStart('*', '+');
-                    string result = await Task.Run(() => _ftp.ExecuteCommand($"SITE CHGADMIN {cleanUser} {_group}", _ftpClient));
+                    var (result, updatedClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync($"SITE CHGADMIN {cleanUser} {_group}", _ftpClient, _ftp);
+                    _ftpClient = updatedClient;
                     if (result.Contains("Error"))
                     {
                         MessageBox.Show($"Error removing user to group: {result}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
@@ -250,7 +252,8 @@ namespace glFTPd_Commander.Views
         
                 foreach (var user in allUsers)
                 {
-                    var userDetails = await Task.Run(() => _ftp!.GetUserDetails(user, _ftpClient!));
+                    var (userDetails, updatedClient) = await FtpBase.ExecuteWithConnectionAsync(_ftpClient, _ftp!, c => Task.Run(() => _ftp!.GetUserDetails(user, c)));
+                    _ftpClient = updatedClient;
         
                     // userDetails.Groups: List<string> like [*Group1, +Group2, Group3]
                     bool isAdmin = userDetails?.Groups?.Any(g =>
@@ -431,13 +434,15 @@ namespace glFTPd_Commander.Views
             try
             {
                 // Step 1: Initial GINFO and parse
-                string ginfoInitial = await Task.Run(() => _ftp.ExecuteCommand($"SITE GINFO {_group}", _ftpClient));
+                var (ginfoInitial, clientAfterGinfo1) = await FtpBase.ExecuteFtpCommandWithReconnectAsync($"SITE GINFO {_group}", _ftpClient, _ftp!);
+                _ftpClient = clientAfterGinfo1;
                 var (allUsers, admins) = ParseAllUserDataFromGinfo(ginfoInitial);
         
                 // Step 2: Demote group admins
                 foreach (var admin in admins)
                 {
-                    string chgadmin = await Task.Run(() => _ftp.ExecuteCommand($"SITE CHGADMIN {admin} {_group}", _ftpClient));
+                    var (chgadmin, clientAfterChgAdmin) = await FtpBase.ExecuteFtpCommandWithReconnectAsync($"SITE CHGADMIN {admin} {_group}", _ftpClient, _ftp!);
+                    _ftpClient = clientAfterChgAdmin;
                     if (chgadmin.Contains("Error", StringComparison.OrdinalIgnoreCase))
                     {
                         MessageBox.Show($"Error removing admin {admin}: {chgadmin}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
@@ -446,13 +451,15 @@ namespace glFTPd_Commander.Views
                 }
         
                 // Step 3: Re-fetch GINFO after admin removal
-                string ginfoClean = await Task.Run(() => _ftp.ExecuteCommand($"SITE GINFO {_group}", _ftpClient));
+                var (ginfoClean, clientAfterGinfo2) = await FtpBase.ExecuteFtpCommandWithReconnectAsync($"SITE GINFO {_group}", _ftpClient, _ftp!);
+                _ftpClient = clientAfterGinfo2;
                 var (cleanUsers, _) = ParseAllUserDataFromGinfo(ginfoClean);
         
                 // Step 4: Remove users from group
                 foreach (var username in cleanUsers)
                 {
-                    string chgrp = await Task.Run(() => _ftp.ExecuteCommand($"SITE CHGRP {username} {_group}", _ftpClient));
+                    var (chgrp, clientAfterChgrp) = await FtpBase.ExecuteFtpCommandWithReconnectAsync($"SITE CHGRP {username} {_group}", _ftpClient, _ftp!);
+                    _ftpClient = clientAfterChgrp;
                     if (chgrp.Contains("Error", StringComparison.OrdinalIgnoreCase))
                     {
                         MessageBox.Show($"Error removing {username} from group: {chgrp}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
@@ -461,7 +468,8 @@ namespace glFTPd_Commander.Views
                 }
         
                 // Step 5: Remove the group
-                string result = await Task.Run(() => _ftp.ExecuteCommand($"SITE GRPDEL {_group}", _ftpClient));
+                var (result, clientAfterDel) = await FtpBase.ExecuteFtpCommandWithReconnectAsync($"SITE GRPDEL {_group}", _ftpClient, _ftp!);
+                _ftpClient = clientAfterDel;
                 if (!result.Contains("Error", StringComparison.OrdinalIgnoreCase))
                 {
                     UnselectGroupOnClose = true;

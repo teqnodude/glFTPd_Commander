@@ -87,7 +87,7 @@ namespace glFTPd_Commander.Views
 
                 // Get all groups (with connection safety)
                 var (allGroups, groupsUpdatedClient) = await FtpBase.ExecuteWithConnectionAsync(
-                    _ftpClient, _ftp!, c => Task.Run(() => (List<GlFtpdClient.FtpGroup>?)_ftp!.GetGroups(c))
+                    _ftpClient, _ftp!, c => _ftp!.GetGroups(c)
                 );
                 _ftpClient = groupsUpdatedClient;
 

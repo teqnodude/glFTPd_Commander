@@ -26,27 +26,6 @@ namespace glFTPd_Commander.FTP
         private readonly SemaphoreSlim _connectionLock = new(1, 1);
         public SemaphoreSlim ConnectionLock => _connectionLock;
 
-        public static bool EnsureConnected(ref FtpClient ftpClient, GlFtpdClient config)
-        {
-            if (ftpClient == null || !ftpClient.IsConnected)
-            {
-                try
-                {
-                    ftpClient?.Dispose();
-                    ftpClient = config.CreateClient();
-                    ftpClient.Connect();
-                    Debug.WriteLine("[FTP] Disposed old client and created a new one.");
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"[FTP] Recreate/connect failed: {ex.Message}");
-                    return false;
-                }
-            }
-            return ftpClient != null && ftpClient.IsConnected;
-        }
-
-
         public GlFtpdClient()
         {
             EncryptionKeyManager.Initialize();
@@ -243,276 +222,214 @@ namespace glFTPd_Commander.FTP
             return client;
         }
 
-        public List<FtpUser> GetUsers(FtpClient? client = null)
+        public async Task<List<FtpUser>> GetUsers(FtpClient? client = null)
         {
-            var result = new List<FtpUser>();
-            bool shouldDispose = client == null;
-            
-            try
-            {
-                client ??= CreateClient();
-                if (!client.IsConnected) client.Connect();
-
-                var reply = client.Execute("SITE USERS");
-                if (!reply.Success) return result;
-
-                var rawInfo = reply.InfoMessages ?? string.Empty;
-                var lines = rawInfo
-                    .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
-                    .Select(line => line.Trim())
-                    .Where(line => line.StartsWith("200-") &&
-                                 !line.Contains("Detailed User Listing") &&
-                                 !line.Contains("Uploaded:") &&
-                                 !line.Contains("SITEOPS=") &&
-                                 !line.Contains("Total members"))
-                    .ToArray();
-
-                foreach (var line in lines)
+            var (result, _) = await FtpBase.ExecuteWithConnectionAsync(
+                client, this, async c =>
                 {
-                    var parts = line.Split([' '], StringSplitOptions.RemoveEmptyEntries);
-                    if (parts.Length >= 2)
+                    // Synchronous parse, but wrapped in Task.Run for offloading.
+                    return await Task.Run(() =>
                     {
-                        result.Add(new FtpUser
+                        var users = new List<FtpUser>();
+                        var reply = c.Execute("SITE USERS");
+                        if (!reply.Success) return users;
+        
+                        var rawInfo = reply.InfoMessages ?? string.Empty;
+                        var lines = rawInfo
+                            .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
+                            .Select(line => line.Trim())
+                            .Where(line => line.StartsWith("200-") &&
+                                           !line.Contains("Detailed User Listing") &&
+                                           !line.Contains("Uploaded:") &&
+                                           !line.Contains("SITEOPS=") &&
+                                           !line.Contains("Total members"))
+                            .ToArray();
+        
+                        foreach (var line in lines)
                         {
-                            Username = parts[1],
-                            Group = parts[2]
-                        });
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                ShowError("Error getting users", ex);
-            }
-            finally
-            {
-                if (shouldDispose) client?.Dispose();
-            }
-            return result;
-        }
-
-        public List<FtpGroup> GetGroups(FtpClient? client = null)
-        {
-            var result = new List<FtpGroup>();
-            bool shouldDispose = client == null;
-            
-            try
-            {
-                client ??= CreateClient();
-                if (!client.IsConnected) client.Connect();
-
-                var reply = client.Execute("SITE GROUPS");
-                if (!reply.Success) return result;
-
-                string info = reply.InfoMessages ?? string.Empty;
-                string message = reply.Message ?? string.Empty;
-                string fullResponse = info + "\n" + message;
-
-                return fullResponse
-                    .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
-                    .Select(line => line.Trim())
-                    .Where(line => line.StartsWith("200- (") && line.Contains(')'))
-                    .Select(line =>
-                    {
-                        var groupMatch = GroupLineRegex().Match(line);
-                        if (groupMatch.Success)
-                        {
-                            return new FtpGroup
+                            var parts = line.Split([' '], StringSplitOptions.RemoveEmptyEntries);
+                            if (parts.Length >= 2)
                             {
-                                Group = groupMatch.Groups[2].Value,
-                                Description = groupMatch.Groups[3].Value.Trim(),
-                                UserCount = int.Parse(groupMatch.Groups[1].Value)
-                            };
-                        }
-                        return null;
-                    })
-                    .Where(g => g != null)
-                    .Where(g => !string.IsNullOrWhiteSpace(g!.Group))
-                    .DistinctBy(g => g!.Group)
-                    .ToList()!;
-            }
-            catch (Exception ex)
-            {
-                ShowError("Error getting groups", ex);
-                return [];
-            }
-            finally
-            {
-                if (shouldDispose) client?.Dispose();
-            }
-        }
-
-        public List<(string Username, bool IsSiteOp, bool IsGroupAdmin)> GetUsersInGroup(FtpClient? client, string groupName)
-        {
-            var users = new List<(string, bool, bool)>();
-            bool shouldDispose = client == null;
-            
-            try
-            {
-                //Debug.WriteLine($"[FTP] Fetching users for group: {groupName}");
-                client ??= CreateClient();
-                if (!client.IsConnected) client.Connect();
-
-                var reply = client.Execute($"SITE GINFO {groupName}");
-                //Debug.WriteLine($"[FTP] GINFO reply for {groupName}: {reply.Success} - {reply.Message}");
-
-                if (!reply.Success || string.IsNullOrWhiteSpace(reply.InfoMessages))
-                    return users;
-
-                var lines = reply.InfoMessages
-                    .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
-                    .Select(line => line.Trim());
-
-                foreach (var line in lines)
-                {
-                    if (line.StartsWith("200- |") && line.Count(c => c == '|') >= 7)
-                    {
-                        var parts = line.Split('|');
-                        if (parts.Length > 2)
-                        {
-                            var usernameWithPrefix = parts[1].Trim();
-                            if (!string.IsNullOrWhiteSpace(usernameWithPrefix) &&
-                                !usernameWithPrefix.Equals("Username", StringComparison.OrdinalIgnoreCase))
-                            {
-                                bool isSiteOp = usernameWithPrefix.StartsWith('*');
-                                bool isGroupAdmin = usernameWithPrefix.StartsWith('+');
-                                string cleanUsername = usernameWithPrefix.TrimStart('*', '+');
-                                if (!string.IsNullOrWhiteSpace(cleanUsername))
-                                users.Add((cleanUsername, isSiteOp, isGroupAdmin));
+                                users.Add(new FtpUser
+                                {
+                                    Username = parts[1],
+                                    Group = parts[2]
+                                });
                             }
                         }
-                    }
+                        return users;
+                    });
                 }
-            }
-            catch (Exception ex)
-            {
-                Console.Error.WriteLine($"Error retrieving users for group {groupName}: {ex.Message}");
-            }
-            finally
-            {
-                if (shouldDispose) client?.Dispose();
-            }
-            return users;
+            );
+            return result ?? [];
         }
 
-        public List<FtpUser> GetDeletedUsers(FtpClient? client = null)
+        public async Task<List<FtpGroup>> GetGroups(FtpClient? client = null)
         {
-            var result = new List<FtpUser>();
-            bool shouldDispose = client == null;
-            
-            try
-            {
-                client ??= CreateClient();
-                if (!client.IsConnected) client.Connect();
-
-                var reply = client.Execute("SITE USERS DELETED");
-                if (!reply.Success) return result;
-
-                var rawInfo = reply.InfoMessages ?? string.Empty;
-                var lines = rawInfo
-                    .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
-                    .Select(line => line.Trim())
-                    .Where(line => line.StartsWith("200-") &&
-                                 !line.Contains("Detailed User Listing") &&
-                                 !line.Contains("Uploaded:") &&
-                                 !line.Contains("SITEOPS=") &&
-                                 !line.Contains("Total members"))
-                    .ToArray();
-
-                foreach (var line in lines)
+            var (result, _) = await FtpBase.ExecuteWithConnectionAsync(
+                client, this, async c =>
                 {
-                    var parts = line.Split([' '], StringSplitOptions.RemoveEmptyEntries);
-                    if (parts.Length >= 2)
+                    return await Task.Run(() =>
                     {
-                        result.Add(new FtpUser
-                        {
-                            Username = parts[1],
-                            Group = parts[2]
-                        });
-                    }
+                        var groups = new List<FtpGroup>();
+                        var reply = c.Execute("SITE GROUPS");
+                        if (!reply.Success) return groups;
+        
+                        string info = reply.InfoMessages ?? string.Empty;
+                        string message = reply.Message ?? string.Empty;
+                        string fullResponse = info + "\n" + message;
+        
+                        return fullResponse
+                            .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
+                            .Select(line => line.Trim())
+                            .Where(line => line.StartsWith("200- (") && line.Contains(')'))
+                            .Select(line =>
+                            {
+                                var groupMatch = GroupLineRegex().Match(line);
+                                if (groupMatch.Success)
+                                {
+                                    return new FtpGroup
+                                    {
+                                        Group = groupMatch.Groups[2].Value,
+                                        Description = groupMatch.Groups[3].Value.Trim(),
+                                        UserCount = int.Parse(groupMatch.Groups[1].Value)
+                                    };
+                                }
+                                return null;
+                            })
+                            .Where(g => g != null)
+                            .Where(g => !string.IsNullOrWhiteSpace(g!.Group))
+                            .DistinctBy(g => g!.Group)
+                            .ToList()!;
+                    });
                 }
-            }
-            catch (Exception ex)
-            {
-                ShowError("Error getting deleted users", ex);
-            }
-            finally
-            {
-                if (shouldDispose) client?.Dispose();
-            }
+            );
+            return result ?? [];
+        }
+
+        public async Task<List<(string Username, bool IsSiteOp, bool IsGroupAdmin)>> GetUsersInGroup(FtpClient? client, string groupName)
+        {
+            var (result, _) = await FtpBase.ExecuteWithConnectionAsync(
+                client, this, async c =>
+                {
+                    return await Task.Run(() =>
+                    {
+                        var users = new List<(string, bool, bool)>();
+                        var reply = c.Execute($"SITE GINFO {groupName}");
+                        if (!reply.Success || string.IsNullOrWhiteSpace(reply.InfoMessages))
+                            return users;
+        
+                        var lines = reply.InfoMessages
+                            .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
+                            .Select(line => line.Trim());
+        
+                        foreach (var line in lines)
+                        {
+                            if (line.StartsWith("200- |") && line.Count(c => c == '|') >= 7)
+                            {
+                                var parts = line.Split('|');
+                                if (parts.Length > 2)
+                                {
+                                    var usernameWithPrefix = parts[1].Trim();
+                                    if (!string.IsNullOrWhiteSpace(usernameWithPrefix) &&
+                                        !usernameWithPrefix.Equals("Username", StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        bool isSiteOp = usernameWithPrefix.StartsWith('*');
+                                        bool isGroupAdmin = usernameWithPrefix.StartsWith('+');
+                                        string cleanUsername = usernameWithPrefix.TrimStart('*', '+');
+                                        if (!string.IsNullOrWhiteSpace(cleanUsername))
+                                            users.Add((cleanUsername, isSiteOp, isGroupAdmin));
+                                    }
+                                }
+                            }
+                        }
+                        return users;
+                    });
+                }
+            );
+            return result ?? [];
+        }
+
+
+        public async Task<List<FtpUser>> GetDeletedUsers(FtpClient? client = null)
+        {
+            var (result, _) = await FtpBase.ExecuteWithConnectionAsync(
+                client, this, async c =>
+                {
+                    return await Task.Run(() =>
+                    {
+                        var users = new List<FtpUser>();
+                        var reply = c.Execute("SITE USERS DELETED");
+                        if (!reply.Success) return users;
+        
+                        var rawInfo = reply.InfoMessages ?? string.Empty;
+                        var lines = rawInfo
+                            .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
+                            .Select(line => line.Trim())
+                            .Where(line => line.StartsWith("200-") &&
+                                           !line.Contains("Detailed User Listing") &&
+                                           !line.Contains("Uploaded:") &&
+                                           !line.Contains("SITEOPS=") &&
+                                           !line.Contains("Total members"))
+                            .ToArray();
+        
+                        foreach (var line in lines)
+                        {
+                            var parts = line.Split([' '], StringSplitOptions.RemoveEmptyEntries);
+                            if (parts.Length >= 2)
+                            {
+                                users.Add(new FtpUser
+                                {
+                                    Username = parts[1],
+                                    Group = parts[2]
+                                });
+                            }
+                        }
+                        return users;
+                    });
+                }
+            );
+            return result ?? [];
+        }
+
+        public async Task<FtpUserDetails?> GetUserDetails(string username, FtpClient? client = null)
+        {
+            var (result, _) = await FtpBase.ExecuteWithConnectionAsync(
+                client, this, async c =>
+                {
+                    return await Task.Run(() =>
+                    {
+                        var reply = c.Execute($"SITE USER {username}");
+                        var details = new FtpUserDetails { Username = username };
+        
+                        string fullResponse = (reply.InfoMessages ?? string.Empty) + "\n" + (reply.Message ?? string.Empty);
+        
+                        var usernameMatch = UsernameRegex().Match(fullResponse);
+                        if (usernameMatch.Success)
+                            details.Username = usernameMatch.Groups[1].Value.Trim();
+        
+                        var flagsMatch = FlagsRegex().Match(fullResponse);
+                        if (flagsMatch.Success)
+                            details.Flags = flagsMatch.Groups[1].Value.Trim();
+        
+                        var groupsMatch = GroupsRegex().Match(fullResponse);
+                        if (groupsMatch.Success)
+                            details.Groups.AddRange(groupsMatch.Groups[1].Value.Trim()
+                                .Split([' '], StringSplitOptions.RemoveEmptyEntries));
+        
+                        details.IpRestrictions.Clear();
+                        var ipLines = fullResponse.Split('\n')
+                            .Where(line => line.Contains("| IP") && line.Contains(':'))
+                            .ToList();
+        
+                        foreach (var line in ipLines)
+                            ProcessIpLine(line, details);
+        
+                        return details;
+                    });
+                }
+            );
             return result;
-        }
-
-        public FtpUserDetails? GetUserDetails(string username, FtpClient? client = null)
-        {
-            bool shouldDispose = client == null;
-            
-            try
-            {
-                client ??= CreateClient();
-                if (!client.IsConnected) client.Connect();
-
-                var reply = client.Execute($"SITE USER {username}");
-                var details = new FtpUserDetails { Username = username };
-
-                string fullResponse = (reply.InfoMessages ?? string.Empty) + "\n" + (reply.Message ?? string.Empty);
-
-                var usernameMatch = UsernameRegex().Match(fullResponse);
-                if (usernameMatch.Success)
-                    details.Username = usernameMatch.Groups[1].Value.Trim();
-
-                var flagsMatch = FlagsRegex().Match(fullResponse);
-                if (flagsMatch.Success)
-                    details.Flags = flagsMatch.Groups[1].Value.Trim();
-
-                var groupsMatch = GroupsRegex().Match(fullResponse);
-                if (groupsMatch.Success)
-                    details.Groups.AddRange(groupsMatch.Groups[1].Value.Trim()
-                        .Split([' '], StringSplitOptions.RemoveEmptyEntries));
-
-                details.IpRestrictions.Clear();
-                var ipLines = fullResponse.Split('\n')
-                    .Where(line => line.Contains("| IP") && line.Contains(':'))
-                    .ToList();
-
-                foreach (var line in ipLines)
-                    ProcessIpLine(line, details);
-
-                return details;
-            }
-            catch (Exception ex)
-            {
-                ShowError("Error getting user details", ex);
-                return null;
-            }
-            finally
-            {
-                if (shouldDispose) client?.Dispose();
-            }
-        }
-
-        public string ExecuteCommand(string command, FtpClient? client = null)
-        {
-            bool shouldDispose = client == null;
-            
-            try
-            {
-                client ??= CreateClient();
-                if (!client.IsConnected) client.Connect();
-
-                var reply = client.Execute(command);
-                return !string.IsNullOrWhiteSpace(reply.InfoMessages) 
-                    ? reply.InfoMessages 
-                    : reply.Message;
-            }
-            catch (Exception ex)
-            {
-                return $"Error: {ex.Message}";
-            }
-            finally
-            {
-                if (shouldDispose) client?.Dispose();
-            }
         }
 
         private static void ProcessIpLine(string line, FtpUserDetails details)

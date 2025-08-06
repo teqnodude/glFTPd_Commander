@@ -12,7 +12,7 @@ namespace glFTPd_Commander.Windows
     public partial class SetSpeedWindow : BaseWindow
     {
         private readonly GlFtpdClient _ftp;
-        private readonly FtpClient _ftpClient;
+        private FtpClient? _ftpClient;
         private readonly string _username;
         private readonly string _commandField;
 
@@ -50,7 +50,8 @@ namespace glFTPd_Commander.Windows
             await _ftp.ConnectionLock.WaitAsync();
             try
             {
-                string result = await Task.Run(() => _ftp.ExecuteCommand(command, _ftpClient));
+                var (result, updatedClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync(command, _ftpClient, _ftp);
+                _ftpClient = updatedClient;
                 if (result.Contains("Error", StringComparison.OrdinalIgnoreCase))
                 {
                     MessageBox.Show($"Failed to set speed: {result}", "Error",

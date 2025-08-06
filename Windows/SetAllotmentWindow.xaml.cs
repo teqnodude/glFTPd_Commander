@@ -12,7 +12,7 @@ namespace glFTPd_Commander.Windows
     public partial class SetAllotmentWindow : BaseWindow
     {
         private readonly GlFtpdClient _ftp;
-        private readonly FtpClient _ftpClient;
+        private FtpClient? _ftpClient;
         private readonly string _username;
 
         public string Section => sectionText.Text.Trim();
@@ -45,7 +45,8 @@ namespace glFTPd_Commander.Windows
             await _ftp.ConnectionLock.WaitAsync();
             try
             {
-                var result = await Task.Run(() => _ftp.ExecuteCommand(command, _ftpClient));
+                var (result, updatedClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync(command, _ftpClient, _ftp);
+                _ftpClient = updatedClient;
                 if (result.Contains("Error", System.StringComparison.OrdinalIgnoreCase))
                 {
                     MessageBox.Show($"Failed to set allotment: {result}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);

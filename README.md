@@ -16,10 +16,10 @@ It comes with a built-in update checker that triggers a background update progra
 <img width="332" height="665" alt="Image" src="https://github.com/user-attachments/assets/cea20aed-a297-41b7-ac9e-465846b90d74" />
 
 ### User
-<img width="1920" height="1032" alt="Image" src="https://github.com/user-attachments/assets/9548bf11-87fe-4dde-af25-b2b692d21e3c" />
+<img width="1920" height="1032" alt="Image" src="https://github.com/user-attachments/assets/9c29cc9f-8ac1-46b9-85fb-9a9980191097" />
 
 ### Group
-<img width="1920" height="1032" alt="Image" src="https://github.com/user-attachments/assets/a86a8dac-e7e6-4b4b-b980-9231e097e943" />
+<img width="1920" height="1032" alt="Image" src="https://github.com/user-attachments/assets/6ace3ace-c1ac-425d-a85a-c765afb0e9a8" />
 
 ### Custom Commands
 <img width="1920" height="1032" alt="Image" src="https://github.com/user-attachments/assets/ecdbbfed-0329-4634-85fb-65966eef5c68" />
