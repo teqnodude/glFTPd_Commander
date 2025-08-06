@@ -45,7 +45,7 @@ namespace glFTPd_Commander.Windows
             try
             {
                 var (groups, updatedClient) = await FtpBase.ExecuteWithConnectionAsync(
-                    _ftpClient, _ftp, c => Task.Run(() => (List<GlFtpdClient.FtpGroup>?)_ftp.GetGroups(c)));
+                    _ftpClient, _ftp, c => _ftp.GetGroups(c));
                 _ftpClient = updatedClient;
                 if (_ftpClient == null)
                 {

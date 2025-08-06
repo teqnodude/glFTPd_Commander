@@ -279,64 +279,52 @@ namespace glFTPd_Commander
                     return;
                 }
         
-                var usersTask = FtpBase.ExecuteWithConnectionAsync(
-                    _ftpClient, _ftp, c => Task.Run(() => (List<GlFtpdClient.FtpUser>?)_ftp.GetUsers(c)));
-                
-                var groupsTask = FtpBase.ExecuteWithConnectionAsync(
-                    _ftpClient, _ftp, c => Task.Run(() => (List<GlFtpdClient.FtpGroup>?)_ftp.GetGroups(c)));
-                
-                var deletedUsersTask = FtpBase.ExecuteWithConnectionAsync(
-                    _ftpClient, _ftp, c => Task.Run(() => (List<GlFtpdClient.FtpUser>?)_ftp.GetDeletedUsers(c)));
-
+                // Start tasks in parallel using the new async GlFtpdClient API
+                var usersTask = _ftp.GetUsers(_ftpClient);
+                var groupsTask = _ftp.GetGroups(_ftpClient);
+                var deletedUsersTask = _ftp.GetDeletedUsers(_ftpClient);
         
                 await Task.WhenAll(usersTask, groupsTask, deletedUsersTask);
         
-                // Keep the newest working client from any successful call
-                _ftpClient = usersTask.Result.Client ?? groupsTask.Result.Client ?? deletedUsersTask.Result.Client;
+                // Get updated client from any of the tasks if needed (here all use the same _ftpClient, but assign the latest)
+                // _ftpClient = ... // Only needed if your GetUsers/GetGroups could reconnect/replace _ftpClient (they don't in your async API now).
         
-                if (_ftpClient == null)
-                {
-                    MessageBox.Show("Lost connection to the FTP server. Please reconnect.", "Connection Lost",
-                        MessageBoxButton.OK, MessageBoxImage.Error);
-                    return;
-                }
+                var users = usersTask.Result ?? [];
+                var groups = groupsTask.Result ?? [];
+                var deletedUsers = deletedUsersTask.Result ?? [];
         
-                var users = usersTask.Result.Result ?? [];
-                var groups = groupsTask.Result.Result ?? [];
-                var deletedUsers = deletedUsersTask.Result.Result ?? [];
-
                 var root = new FtpTreeItem { Name = $"FTP Server: {_ftp.Host}", IsRoot = true };
-
+        
                 // USERS
                 var usersNode = new FtpTreeItem { Name = $"Users ({users.Count + deletedUsers.Count})" };
-                
+        
                 // --- Optimized: Build user role map while building group nodes ---
                 var userRoleMap = new Dictionary<string, (bool isSiteOp, bool isGroupAdmin)>(StringComparer.OrdinalIgnoreCase);
-                
+        
                 var groupsNode = new FtpTreeItem { Name = $"Groups ({groups.Count})" };
                 foreach (var group in groups.OrderBy(g => g.Group, StringComparer.OrdinalIgnoreCase))
                 {
                     string label = string.IsNullOrWhiteSpace(group.Description)
                         ? $"{group.Group} ({group.UserCount})"
                         : $"{group.Group} - {group.Description} ({group.UserCount})";
-                
+        
                     var groupNode = new FtpTreeItem
                     {
                         Name = label,
                         Group = group
                     };
-                
-                    var groupUsers = await System.Threading.Tasks.Task.Run(() => _ftp.GetUsersInGroup(_ftpClient, group.Group));
+        
+                    var groupUsers = await _ftp.GetUsersInGroup(_ftpClient, group.Group);
                     foreach (var (userName, isSiteOp, isGroupAdmin) in groupUsers.OrderBy(u => u.Username))
                     {
                         groupNode.Children.Add(new FtpTreeItem
                         {
                             Name = (isSiteOp ? "*" : isGroupAdmin ? "+" : "") + userName,
-                            User = new FtpUser { Username = userName, Group = group.Group },
+                            User = new GlFtpdClient.FtpUser { Username = userName, Group = group.Group },
                             IsSiteOp = isSiteOp,
                             IsGroupAdmin = isGroupAdmin
                         });
-                
+        
                         // Aggregate roles for user
                         if (!userRoleMap.TryGetValue(userName, out var flags))
                             userRoleMap[userName] = (isSiteOp, isGroupAdmin);
@@ -346,8 +334,7 @@ namespace glFTPd_Commander
                     groupsNode.Children.Add(groupNode);
                 }
                 root.Children.Add(usersNode);
-                
-                
+        
                 // Now, for active users:
                 var activeUsersNode = new FtpTreeItem { Name = $"Active Users ({users.Count})" };
                 foreach (var user in users.OrderBy(u => u.Username))
@@ -362,7 +349,7 @@ namespace glFTPd_Commander
                     });
                 }
                 usersNode.Children.Add(activeUsersNode);
-                
+        
                 var deletedUsersNode = new FtpTreeItem { Name = $"Deleted Users ({deletedUsers.Count})" };
                 foreach (var user in deletedUsers.OrderBy(u => u.Username))
                 {
@@ -375,8 +362,7 @@ namespace glFTPd_Commander
                 }
                 usersNode.Children.Add(deletedUsersNode);
                 root.Children.Add(groupsNode);
-
-
+        
                 // INCREMENTAL UPDATE:
                 if (RootItems.Count == 0)
                 {
@@ -390,10 +376,10 @@ namespace glFTPd_Commander
                     // Save expanded state before update
                     expandedKeys.Clear();
                     SaveExpandedNodes(RootItems);
-
+        
                     // Update the tree while preserving structure
                     UpdateTree(RootItems, [root]);
-
+        
                     // Restore expanded state after update
                     RestoreExpandedNodes(RootItems);
                 }
@@ -410,6 +396,7 @@ namespace glFTPd_Commander
                 _isLoading = false;
             }
         }
+
 
         private void FtpTreeView_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
         {
