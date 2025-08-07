@@ -87,6 +87,58 @@ namespace glFTPd_Commander.Utils
             return false;
         }
 
+        public static bool IsValidGlftpdIp(string input)
+        {
+            if (input == "*")
+                return true;
+            if (input == "*@*")
+                return true;
+        
+            string ipv4Octet = @"(\d{1,3}|\*)";
+            string ipv4PartialPattern = $@"^(\*|[a-zA-Z0-9_\-]+)@({ipv4Octet}(\.{ipv4Octet}){{0,3}})$";
+            string ipv6Pattern = @"^(\*|[a-zA-Z0-9_\-]+)@([0-9a-fA-F:\*]+)$";
+            string wildcardPattern = @"^(\*|[a-zA-Z0-9_\-]+)@\*$";
+            string identOnlyPattern = @"^(\*|[a-zA-Z0-9_\-]+)$";
+            string ipOnlyPattern = $@"^({ipv4Octet}(\.{ipv4Octet}){{0,3}}|([0-9a-fA-F]{{0,4}}:)+[0-9a-fA-F]{{0,4}}|\*)$";
+        
+            // Validate partial IPv4, but check against all-* wildcards
+            var ipv4Match = Regex.Match(input, ipv4PartialPattern);
+            if (ipv4Match.Success)
+            {
+                var atIndex = input.IndexOf('@');
+                var ipPart = input[(atIndex + 1)..];
+                // Split and check if ALL octets are "*" (max 4 octets)
+                var octets = ipPart.Split('.');
+                if (octets.All(o => o == "*"))
+                    return false; // Disallow *@*.*.*.* and similar
+                return true;
+            }
+        
+            return Regex.IsMatch(input, ipv6Pattern)
+                || Regex.IsMatch(input, wildcardPattern)
+                || Regex.IsMatch(input, identOnlyPattern)
+                || Regex.IsMatch(input, ipOnlyPattern);
+        }
+
+        public static bool IsGlftpdIpAddError(string result) =>
+            !string.IsNullOrEmpty(result) &&
+            (result.Contains("not added", StringComparison.OrdinalIgnoreCase)
+             || result.Contains("it is not specific enough", StringComparison.OrdinalIgnoreCase));
+        
+
+        public static bool ValidateAndWarn(bool condition, string message, System.Windows.Controls.Control? controlToFocus = null)
+        {
+            if (condition)
+            {
+                System.Windows.MessageBox.Show(message, "Validation Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+                controlToFocus?.Focus();
+                if (controlToFocus is System.Windows.Controls.TextBox tb)
+                    tb.SelectAll();
+                return true;
+            }
+            return false;
+        }
+
         [GeneratedRegex(@"^-?\d+$")]
         private static partial Regex IntegerRegex();
         

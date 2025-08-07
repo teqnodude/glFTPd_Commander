@@ -14,12 +14,12 @@
             <TextBlock Text="Project URL:" FontWeight="Bold"/>
             <TextBlock>
                 <Hyperlink NavigateUri="https://github.com/teqnodude/glFTPd_Commander"
-                           RequestNavigate="Hyperlink_RequestNavigate">
+                           RequestNavigate="ProjectUrlHyperlink_RequestNavigate">
                     https://github.com/teqnodude/glFTPd_Commander
                 </Hyperlink>
             </TextBlock>
             <StackPanel Orientation="Horizontal" Margin="0,10,0,0" VerticalAlignment="Center">
-                <TextBlock x:Name="UpdateStatusText"
+                <TextBlock x:Name="UpdateStatusTextBlock"
                        FontStyle="Italic"
                        Foreground="Gray"
                        Text="Checking for updates..."

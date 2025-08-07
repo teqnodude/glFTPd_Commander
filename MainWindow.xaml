@@ -18,17 +18,17 @@
             <!-- Menu Bar -->
             <Menu DockPanel.Dock="Top">
                 <MenuItem Header="Sites">
-                    <MenuItem Header="Site Manager" Click="SiteManager_Click"/>
-                    <MenuItem Header="Connect" x:Name="connectMenuItem" />
-                    <MenuItem Header="Disconnect" Click="Disconnect_Click" Name="disconnectMenuItem"/>
+                    <MenuItem Header="Site Manager" Click="SiteManagerMenuItem_Click"/>
+                    <MenuItem Header="Connect" x:Name="ConnectMenuItem" />
+                    <MenuItem Header="Disconnect" x:Name="DisconnectMenuItem" Click="DisconnectMenuItem_Click"/>
                 </MenuItem>
-                <MenuItem Header="Users &amp; Groups" Name="usersGroupsMenuItem">
-                    <MenuItem Header="Add User" Click="UserAdd_Click"/>
-                    <MenuItem Header="Add Group" Click="GroupAdd_Click"/>
+                <MenuItem Header="Users &amp; Groups" x:Name="UsersGroupsMenuItem">
+                    <MenuItem Header="Add User" Click="AddUserMenuItem_Click"/>
+                    <MenuItem Header="Add Group" Click="AddGroupMenuItem_Click"/>
                 </MenuItem>
                 <MenuItem Header="Help">
-                    <MenuItem Header="User Guide" Click="Help_Click"/>
-                    <MenuItem Header="About" Click="About_Click"/>
+                    <MenuItem Header="User Guide" Click="UserGuideMenuItem_Click"/>
+                    <MenuItem Header="About" Click="AboutMenuItem_Click"/>
                 </MenuItem>
             </Menu>
 
@@ -48,28 +48,28 @@
 
                     <!-- Expand/Collapse Bar -->
                     <StackPanel Orientation="Horizontal"
-                                Margin="42,5,0,5"
-                                HorizontalAlignment="Left"
-                                Visibility="{Binding IsConnected, Converter={StaticResource BoolToVis}}"
-                                Grid.Row="0">
+                            Margin="42,5,0,5"
+                            HorizontalAlignment="Left"
+                            Visibility="{Binding IsConnected, Converter={StaticResource BoolToVis}}"
+                            Grid.Row="0">
                         <TextBlock Text="Expand All"
-                                   MouseLeftButtonUp="ExpandAll_Click"
-                                   Foreground="DodgerBlue"
-                                   Cursor="Hand"
-                                   TextDecorations="Underline"
-                                   Margin="0,0,12,0"/>
+                               MouseLeftButtonUp="ExpandAllTextBlock_Click"
+                               Foreground="DodgerBlue"
+                               Cursor="Hand"
+                               TextDecorations="Underline"
+                               Margin="0,0,12,0"/>
                         <TextBlock Text="Collapse All"
-                                   MouseLeftButtonUp="CollapseAll_Click"
-                                   Foreground="DodgerBlue"
-                                   Cursor="Hand"
-                                   TextDecorations="Underline"/>
+                               MouseLeftButtonUp="CollapseAllTextBlock_Click"
+                               Foreground="DodgerBlue"
+                               Cursor="Hand"
+                               TextDecorations="Underline"/>
                     </StackPanel>
 
                     <!-- TreeView with internal ScrollViewer enabled -->
                     <TreeView x:Name="FtpTreeView"
-                                Grid.Row="1"
-                                ItemsSource="{Binding RootItems}"
-                                SelectedItemChanged="FtpTreeView_SelectedItemChanged">
+                          Grid.Row="1"
+                          ItemsSource="{Binding RootItems}"
+                          SelectedItemChanged="FtpTreeView_SelectedItemChanged">
                         <TreeView.ItemTemplate>
                             <HierarchicalDataTemplate ItemsSource="{Binding Children}">
                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
@@ -97,13 +97,10 @@
                         <Grid Margin="10">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="*" />
-                                <!-- one row: everything -->
                             </Grid.RowDefinitions>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="2*" />
-                                <!-- left: commands & output -->
                                 <ColumnDefinition Width="*" />
-                                <!-- right: custom buttons -->
                             </Grid.ColumnDefinitions>
 
                             <!-- LEFT SIDE: Command input and output -->
@@ -111,33 +108,33 @@
                                 <!-- Command input -->
                                 <DockPanel Margin="0,0,0,5">
                                     <ComboBox x:Name="CommandInputComboBox"
-                                                Width="700"
-                                                IsEditable="True"
-                                                IsReadOnly="False"
-                                                Margin="0,0,5,0"
-                                                HorizontalAlignment="Left"
-                                                VerticalAlignment="Center"
-                                                KeyDown="CommandInputComboBox_KeyDown"
-                                                ToolTipService.InitialShowDelay="100"    
-                                                ToolTip="Enter a SITE command (e.g., SITE USERS)" />
+                                          Width="700"
+                                          IsEditable="True"
+                                          IsReadOnly="False"
+                                          Margin="0,0,5,0"
+                                          HorizontalAlignment="Left"
+                                          VerticalAlignment="Center"
+                                          KeyDown="CommandInputComboBox_KeyDown"
+                                          ToolTipService.InitialShowDelay="100"
+                                          ToolTip="Enter a SITE command (e.g., SITE USERS)" />
                                 </DockPanel>
                                 <!-- Terminal output -->
                                 <TextBox x:Name="CommandOutputTextBox"
-                                           FontFamily="Consolas"
-                                           FontSize="13"
-                                           IsReadOnly="True"
-                                           TextWrapping="Wrap"
-                                           VerticalScrollBarVisibility="Auto"
-                                           HorizontalScrollBarVisibility="Auto"
-                                           Background="Black"
-                                           Foreground="LightGreen"
-                                           AcceptsReturn="True"
-                                           Height="800"/>
+                                     FontFamily="Consolas"
+                                     FontSize="13"
+                                     IsReadOnly="True"
+                                     TextWrapping="Wrap"
+                                     VerticalScrollBarVisibility="Auto"
+                                     HorizontalScrollBarVisibility="Auto"
+                                     Background="Black"
+                                     Foreground="LightGreen"
+                                     AcceptsReturn="True"
+                                     Height="800"/>
                             </StackPanel>
 
                             <!-- RIGHT SIDE: 20 custom command buttons in a 2x10 grid -->
                             <ItemsControl Grid.Row="0" Grid.Column="1" VerticalAlignment="Top"
-                                          ItemsSource="{Binding CustomCommandSlots, RelativeSource={RelativeSource AncestorType=Window}}">
+                                      ItemsSource="{Binding CustomCommandSlots, RelativeSource={RelativeSource AncestorType=Window}}">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
                                         <UniformGrid Columns="2" Rows="10"/>
@@ -146,40 +143,36 @@
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
                                         <Button Content="{Binding ButtonText}"
-                                                Margin="0,0,10,20"
-                                                Padding="18,14"
-                                                FontSize="15"
-                                                MinWidth="150"
-                                                MinHeight="64"
-                                                Background="{DynamicResource SystemControlBackgroundAltHighBrush}"
-                                                Foreground="White"
-                                                BorderThickness="2"
-                                                BorderBrush="{DynamicResource SystemControlHighlightAccentBrush}"
-                                                HorizontalContentAlignment="Center"
-                                                VerticalContentAlignment="Center"
-                                                Command="{Binding DataContext.CustomCommandSlotClickCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                CommandParameter="{Binding}">
+                                            Margin="0,0,10,20"
+                                            Padding="18,14"
+                                            FontSize="15"
+                                            MinWidth="150"
+                                            MinHeight="64"
+                                            Background="{DynamicResource SystemControlBackgroundAltHighBrush}"
+                                            Foreground="White"
+                                            BorderThickness="2"
+                                            BorderBrush="{DynamicResource SystemControlHighlightAccentBrush}"
+                                            HorizontalContentAlignment="Center"
+                                            VerticalContentAlignment="Center"
+                                            Command="{Binding DataContext.CustomCommandSlotClickCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                            CommandParameter="{Binding}">
                                             <Button.ContextMenu>
                                                 <ContextMenu>
                                                     <MenuItem Header="Remove"
-                                                              Visibility="{Binding IsConfigured, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                                              Command="{Binding Command, Source={StaticResource RemoveCustomCommandProxy}}"
-                                                              CommandParameter="{Binding}" />
+                                                          Visibility="{Binding IsConfigured, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                                          Command="{Binding Command, Source={StaticResource RemoveCustomCommandProxy}}"
+                                                          CommandParameter="{Binding}" />
                                                     <MenuItem Header="Not Configured"
-                                                              Visibility="{Binding IsConfigured, Converter={StaticResource InverseBooleanToVisibilityConverter}}"
-                                                              IsEnabled="False" />
-
+                                                          Visibility="{Binding IsConfigured, Converter={StaticResource InverseBooleanToVisibilityConverter}}"
+                                                          IsEnabled="False" />
                                                 </ContextMenu>
                                             </Button.ContextMenu>
                                         </Button>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
-
                         </Grid>
                     </TabItem>
-
-
                 </TabControl>
             </Grid>
         </DockPanel>

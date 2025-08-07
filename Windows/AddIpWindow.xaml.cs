@@ -1,4 +1,8 @@
-﻿using glFTPd_Commander.Windows;
+﻿using FluentFTP;
+using glFTPd_Commander.FTP;
+using glFTPd_Commander.Services;
+using glFTPd_Commander.Utils;
+using glFTPd_Commander.Windows;
 using System.Windows;
 
 
@@ -6,22 +10,57 @@ namespace glFTPd_Commander.Windows
 {
     public partial class AddIpWindow : BaseWindow
     {
-        public string IPAddress => ipTextBox.Text;
+        public string IPAddress => IpTextBox.Text;
 
         public AddIpWindow()
         {
             InitializeComponent();
-            this.Loaded += (s, e) => ipTextBox.Focus();
+            this.Loaded += (s, e) => IpTextBox.Focus();
         }
+
+        public static async Task<bool> ShowAndAddIp(Window owner, GlFtpdClient ftp, FtpClient? ftpClient, string username)
+        {
+            var addIpWindow = new AddIpWindow
+            {
+                Owner = owner,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner
+            };
+        
+            if (addIpWindow.ShowDialog() == true)
+            {
+                string ipAddress = addIpWindow.IPAddress;
+                await ftp.ConnectionLock.WaitAsync();
+                try
+                {
+                    var (result, updatedClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync(
+                        $"SITE ADDIP {username} {ipAddress}", ftpClient, ftp);
+        
+                    if (InputUtils.IsGlftpdIpAddError(result))
+                    {
+                        MessageBox.Show(result, "IP Add Failed", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        return false;
+                    }
+                    else if (result.Contains("Error", StringComparison.OrdinalIgnoreCase))
+                    {
+                        MessageBox.Show(result, "Error Adding IP", MessageBoxButton.OK, MessageBoxImage.Error);
+                        return false;
+                    }
+                    return true;
+                }
+                finally
+                {
+                    ftp.ConnectionLock.Release();
+                }
+            }
+            return false;
+        }
+
 
         private void AddButton_Click(object sender, RoutedEventArgs e)
         {
-            if (string.IsNullOrWhiteSpace(ipTextBox.Text))
-            {
-                MessageBox.Show("Please enter an IP address", "Error",
-                                MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
-            }
+            if (InputUtils.ValidateAndWarn(string.IsNullOrWhiteSpace(IpTextBox.Text), "Please enter an IP address", IpTextBox)) return;
+            if (InputUtils.ValidateAndWarn(!InputUtils.IsValidGlftpdIp(IpTextBox.Text),
+                "Invalid IP restriction format. Examples:\n*@127.0.0.1\n*@127.0.0.*\n*@2001:db8::*\nident@127.0.0.1\nident@2001:db8::1\n*@*", IpTextBox)) return;
 
             DialogResult = true;
             Close();

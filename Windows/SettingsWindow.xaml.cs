@@ -20,20 +20,20 @@ namespace glFTPd_Commander.Windows
         public SettingsWindow()
         {
             InitializeComponent();
-            connectionComboBox.ItemsSource = connections;
-            txtPassword.GotFocus += (s, e) => RevealPassword(true);
-            txtPasswordVisible.LostFocus += (s, e) => RevealPassword(false);
+            ConnectionsComboBox.ItemsSource = connections;
+            PasswordBox.GotFocus += (s, e) => RevealPassword(true);
+            PasswordVisibleTextBox.LostFocus += (s, e) => RevealPassword(false);
             LoadConnections();
 
             if (connections.Count > 0)
             {
-                connectionComboBox.SelectedIndex = 0;
+                ConnectionsComboBox.SelectedIndex = 0;
             }
             else
             {
                 AddNewConnection();
             }
-            Loaded += (s, e) => txtConnectionName.Focus();
+            Loaded += (s, e) => ConnectionNameTextBox.Focus();
         }
         
         private void LoadConnections()
@@ -54,45 +54,42 @@ namespace glFTPd_Commander.Windows
             }
         }
 
-        private void ConnectionComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        private void ConnectionsComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (connectionComboBox.SelectedIndex >= 0 && connectionComboBox.SelectedIndex < connections.Count)
+            if (ConnectionsComboBox.SelectedIndex >= 0 && ConnectionsComboBox.SelectedIndex < connections.Count)
             {
-                currentConnection = connections[connectionComboBox.SelectedIndex];
+                currentConnection = connections[ConnectionsComboBox.SelectedIndex];
                 DisplayConnection(currentConnection);
             }
         }
 
         private void DisplayConnection(FtpConnection connection)
         {
-            txtConnectionName.Text = connection.Name;
-            txtIP.Text = connection.Host;
-            txtPort.Text = connection.Port;
-            txtUsername.Text = connection.Username;
-            txtPassword.Password = connection.Password;
-            txtPasswordVisible.Text = connection.Password;
+            ConnectionNameTextBox.Text = connection.Name;
+            ServerTextBox.Text = connection.Host;
+            PortTextBox.Text = connection.Port;
+            UsernameTextBox.Text = connection.Username;
+            PasswordBox.Password = connection.Password;
+            PasswordVisibleTextBox.Text = connection.Password;
         
-            foreach (ComboBoxItem item in cmbMode.Items)
+            foreach (ComboBoxItem item in ConnectionTypeComboBox.Items)
             {
                 if (item.Tag is string tag && tag.Equals(connection.Mode, StringComparison.OrdinalIgnoreCase))
                 {
-                    cmbMode.SelectedItem = item;
+                    ConnectionTypeComboBox.SelectedItem = item;
                     break;
                 }
             }
-
-            foreach (ComboBoxItem item in cmbSslMode.Items)
+            foreach (ComboBoxItem item in SslModeComboBox.Items)
             {
                 if (item.Tag is string tag && tag.Equals(connection.SslMode, StringComparison.OrdinalIgnoreCase))
                 {
-                    cmbSslMode.SelectedItem = item;
+                    SslModeComboBox.SelectedItem = item;
                     break;
                 }
             }
-            
-            // Ensure password is hidden by default
-            txtPasswordVisible.Visibility = Visibility.Collapsed;
-            txtPassword.Visibility = Visibility.Visible;
+            PasswordVisibleTextBox.Visibility = Visibility.Collapsed;
+            PasswordBox.Visibility = Visibility.Visible;
             isPasswordVisible = false;
         }
         
@@ -109,18 +106,18 @@ namespace glFTPd_Commander.Windows
                 SslMode = "Explicit"
             };
             connections.Add(currentConnection);
-            connectionComboBox.SelectedIndex = connections.Count - 1;
+            ConnectionsComboBox.SelectedIndex = connections.Count - 1;
             DisplayConnection(currentConnection);
         }
 
-        private void AddConnection_Click(object sender, RoutedEventArgs e) => AddNewConnection();
+        private void AddConnectionButton_Click(object sender, RoutedEventArgs e) => AddNewConnection();
 
-        private void RemoveConnection_Click(object sender, RoutedEventArgs e)
+        private void RemoveConnectionButton_Click(object sender, RoutedEventArgs e)
         {
-            if (connectionComboBox.SelectedIndex >= 0)
+            if (ConnectionsComboBox.SelectedIndex >= 0)
             {
                 // Remove selected connection from the ObservableCollection
-                connections.RemoveAt(connectionComboBox.SelectedIndex);
+                connections.RemoveAt(ConnectionsComboBox.SelectedIndex);
             
                 // Save the new list to settings.json via SettingsManager
                 var validConnections = connections
@@ -137,7 +134,6 @@ namespace glFTPd_Commander.Windows
                 {
                     currentConnection = null;
                     DisplayConnection(new FtpConnection()); // Clear fields in UI
-                    btnSave.IsEnabled = false;
             
                     // Optionally update the Connect menu in MainWindow and handle disconnect
                     if (Owner is MainWindow mainWindow)
@@ -158,27 +154,34 @@ namespace glFTPd_Commander.Windows
                 }
                 else
                 {
-                    connectionComboBox.SelectedIndex = 0; // Select first remaining item
+                    ConnectionsComboBox.SelectedIndex = 0; // Select first remaining item
                     // You don't need to call Save_Click again—it is all handled above
                 }
             }
         }
 
-
-        private void Save_Click(object sender, RoutedEventArgs e)
+        private void SaveButton_Click(object sender, RoutedEventArgs e)
         {
             if (currentConnection == null) return;
         
-            string newName = txtConnectionName.Text.Trim();
-            string host = txtIP.Text.Trim();
-            string port = txtPort.Text.Trim();
-            string username = txtUsername.Text.Trim();
-            string password = isPasswordVisible ? txtPasswordVisible.Text : txtPassword.Password;
+            string newName = ConnectionNameTextBox.Text.Trim();
+            string host = ServerTextBox.Text.Trim();
+            string port = PortTextBox.Text.Trim();
+            string username = UsernameTextBox.Text.Trim();
+            string password = isPasswordVisible ? PasswordVisibleTextBox.Text : PasswordBox.Password;
+        
+            if (InputUtils.ValidateAndWarn(string.IsNullOrWhiteSpace(newName), "Please enter a connection name.", ConnectionNameTextBox)) return;
+            if (InputUtils.ValidateAndWarn(string.IsNullOrWhiteSpace(username), "Please enter a username.", UsernameTextBox)) return;
+            if (InputUtils.ValidateAndWarn(string.IsNullOrWhiteSpace(password), "Please enter a password.", isPasswordVisible ? PasswordVisibleTextBox : (Control)PasswordBox)) return;
+            if (InputUtils.ValidateAndWarn(string.IsNullOrWhiteSpace(host), "Please enter a server.", ServerTextBox)) return;
+            if (InputUtils.ValidateAndWarn(string.IsNullOrWhiteSpace(port), "Please enter a port.", PortTextBox)) return;
         
             if (connections.Any(c => c != currentConnection && c.Name?.Equals(newName, StringComparison.OrdinalIgnoreCase) == true))
             {
-                MessageBox.Show("A connection with this name already exists.", "Duplicate Name", 
-                               MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show("A connection with this name already exists.", "Duplicate Name",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                ConnectionNameTextBox.Focus();
+                ConnectionNameTextBox.SelectAll();
                 return;
             }
         
@@ -187,8 +190,8 @@ namespace glFTPd_Commander.Windows
             currentConnection.Username = username;
             currentConnection.Password = password;
             currentConnection.Port = port;
-            currentConnection.Mode = (cmbMode.SelectedItem as ComboBoxItem)?.Tag as string ?? "PASV";
-            currentConnection.SslMode = (cmbSslMode.SelectedItem as ComboBoxItem)?.Tag as string ?? "Explicit";
+            currentConnection.Mode = (ConnectionTypeComboBox.SelectedItem as ComboBoxItem)?.Tag as string ?? "PASV";
+            currentConnection.SslMode = (SslModeComboBox.SelectedItem as ComboBoxItem)?.Tag as string ?? "Explicit";
         
             // Save all connections back to SettingsManager
             var validConnections = connections
@@ -204,37 +207,25 @@ namespace glFTPd_Commander.Windows
             Close();
         }
 
-
-        private void InputField_TextChanged(object sender, RoutedEventArgs e)
-        {
-            bool allFilled = !string.IsNullOrWhiteSpace(txtConnectionName.Text) &&
-                             !string.IsNullOrWhiteSpace(txtIP.Text) &&
-                             !string.IsNullOrWhiteSpace(txtPort.Text) &&
-                             !string.IsNullOrWhiteSpace(txtUsername.Text);
-
-            btnSave.IsEnabled = allFilled;
-        }
-
         private void RevealPassword(bool show)
         {
             if (show)
             {
-                txtPasswordVisible.Text = txtPassword.Password;
-                txtPasswordVisible.Visibility = Visibility.Visible;
-                txtPassword.Visibility = Visibility.Collapsed;
-                txtPasswordVisible.Focus();
-                txtPasswordVisible.SelectAll();
+                PasswordVisibleTextBox.Text = PasswordBox.Password;
+                PasswordVisibleTextBox.Visibility = Visibility.Visible;
+                PasswordBox.Visibility = Visibility.Collapsed;
+                PasswordVisibleTextBox.Focus();
+                PasswordVisibleTextBox.SelectAll();
             }
             else
             {
-                txtPassword.Password = txtPasswordVisible.Text;
-                txtPassword.Visibility = Visibility.Visible;
-                txtPasswordVisible.Visibility = Visibility.Collapsed;
+                PasswordBox.Password = PasswordVisibleTextBox.Text;
+                PasswordBox.Visibility = Visibility.Visible;
+                PasswordVisibleTextBox.Visibility = Visibility.Collapsed;
             }
         }
 
-
-        private void Cancel_Click(object sender, RoutedEventArgs e)
+        private void CancelButton_Click(object sender, RoutedEventArgs e)
         {
             this.Close();
         }

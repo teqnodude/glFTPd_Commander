@@ -1,7 +1,8 @@
 ﻿using FluentFTP;
 using glFTPd_Commander.FTP;
 using glFTPd_Commander.Services;
-using System;
+using glFTPd_Commander.Utils;
+using System.Diagnostics;
 using System.Windows;
 
 namespace glFTPd_Commander.Windows
@@ -10,8 +11,8 @@ namespace glFTPd_Commander.Windows
     {
         private readonly GlFtpdClient _ftp;
         private FtpClient? _ftpClient;
-        public string GroupName => txtGroupName.Text.Trim();
-        public string Description => txtDescription.Text.Trim();
+        public string GroupName => GroupNameTextBox.Text.Trim();
+        public string Description => DescriptionTextBox.Text.Trim();
         public bool AddSuccessful { get; private set; } = false;
 
         public AddGroupWindow(GlFtpdClient ftp, FtpClient ftpClient)
@@ -19,43 +20,44 @@ namespace glFTPd_Commander.Windows
             InitializeComponent();
             _ftp = ftp;
             _ftpClient = ftpClient;
-            Loaded += (s, e) => txtGroupName.Focus();
+            Loaded += (s, e) => GroupNameTextBox.Focus();
         }
 
         private void InputField_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
-            => btnAdd.IsEnabled = !string.IsNullOrWhiteSpace(GroupName) && !string.IsNullOrWhiteSpace(Description);
+            => AddButton.IsEnabled = !string.IsNullOrWhiteSpace(GroupName) && !string.IsNullOrWhiteSpace(Description);
 
-        private async void BtnAdd_Click(object sender, RoutedEventArgs e)
+        private async void AddButton_Click(object sender, RoutedEventArgs e)
         {
-            if (string.IsNullOrWhiteSpace(GroupName))
+            if (InputUtils.ValidateAndWarn(string.IsNullOrWhiteSpace(GroupName), "Please enter a group name.", GroupNameTextBox)) return;
+            if (InputUtils.ValidateAndWarn(string.IsNullOrWhiteSpace(Description), "Please enter a group description.", DescriptionTextBox)) return;
+
+            // --- Duplicate group check ---
+            if (await ExistenceChecks.GroupExistsAsync(_ftp, _ftpClient, GroupName))
             {
-                MessageBox.Show("Please enter a group name.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
-                txtGroupName.Focus();
-                return;
-            }
-            if (string.IsNullOrWhiteSpace(Description))
-            {
-                MessageBox.Show("Please enter a description.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
-                txtDescription.Focus();
+                MessageBox.Show("A group with this name already exists. Please choose another group name.",
+                                "Duplicate Group", MessageBoxButton.OK, MessageBoxImage.Warning);
+                GroupNameTextBox.Focus();
+                GroupNameTextBox.SelectAll();
+                Debug.WriteLine($"[AddGroupWindow] Prevented adding existing group '{GroupName}'");
+                AddButton.IsEnabled = true;
                 return;
             }
 
-            btnAdd.IsEnabled = false;
+            AddButton.IsEnabled = false;
 
             await _ftp.ConnectionLock.WaitAsync();
             try
             {
-                var (result, updatedClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync(
-                    $"SITE GRPADD {GroupName} {Description}", _ftpClient, _ftp);
-                
+                var (result, updatedClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync($"SITE GRPADD {GroupName} {Description}", _ftpClient, _ftp);
+
                 _ftpClient = updatedClient;
                 if (_ftpClient == null)
                 {
                     MessageBox.Show("Lost connection to the FTP server.", "Connection Lost", MessageBoxButton.OK, MessageBoxImage.Error);
-                    btnAdd.IsEnabled = true;
+                    AddButton.IsEnabled = true;
                     return;
                 }
-                if (!string.IsNullOrEmpty(result) && !result.StartsWith("Error", StringComparison.OrdinalIgnoreCase))
+                if (!string.IsNullOrEmpty(result) && !result.StartsWith("Error", System.StringComparison.OrdinalIgnoreCase))
                 {
                     AddSuccessful = true;
                     DialogResult = true;
@@ -64,7 +66,7 @@ namespace glFTPd_Commander.Windows
                 else
                 {
                     MessageBox.Show(result ?? "Unknown error", "Failed to Add Group", MessageBoxButton.OK, MessageBoxImage.Error);
-                    btnAdd.IsEnabled = true;
+                    AddButton.IsEnabled = true;
                 }
             }
             finally
@@ -73,7 +75,7 @@ namespace glFTPd_Commander.Windows
             }
         }
 
-        private void BtnCancel_Click(object sender, RoutedEventArgs e)
+        private void CancelButton_Click(object sender, RoutedEventArgs e)
         {
             DialogResult = false;
             Close();

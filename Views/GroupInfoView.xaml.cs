@@ -1,6 +1,7 @@
 ﻿using FluentFTP;
 using glFTPd_Commander.FTP;
 using glFTPd_Commander.Services;
+using glFTPd_Commander.Utils;
 using glFTPd_Commander.Windows;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
@@ -133,12 +134,31 @@ namespace glFTPd_Commander.Views
 
         private async void GroupNameTextBox_LostFocus(object sender, RoutedEventArgs e)
         {
-            _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
-                if (_ftpClient == null) return;
-
             string newVal = GroupNameTextBox.Text.Trim();
-            if (_oldGroupName == newVal || string.IsNullOrWhiteSpace(newVal)) return;
-
+            if (_oldGroupName == newVal) return;
+            if (InputUtils.ValidateAndWarn(string.IsNullOrWhiteSpace(newVal), "Please enter a group name.", GroupNameTextBox))
+            {
+                GroupNameTextBox.Text = _oldGroupName;
+                GroupNameTextBox.Focus();
+                GroupNameTextBox.SelectAll();
+                return;
+            }
+            
+            // Prevent renaming to an existing group
+            if (await ExistenceChecks.GroupExistsAsync(_ftp!, _ftpClient, newVal))
+            {
+                MessageBox.Show("A group with this name already exists.", "Duplicate Group", 
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                GroupNameTextBox.Text = _oldGroupName;
+                GroupNameTextBox.Focus();
+                GroupNameTextBox.SelectAll();
+                Debug.WriteLine($"[GroupInfoView] Prevented renaming group '{_group}' to existing group '{newVal}'");
+                return;
+            }
+            
+            _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+            if (_ftpClient == null) return;
+            
             await _ftp!.ConnectionLock.WaitAsync();
             try
             {
@@ -146,7 +166,7 @@ namespace glFTPd_Commander.Views
                 _ftpClient = updatedClient;
                 if (result.Contains("Error"))
                     throw new Exception(result);
-
+            
                 _oldGroupName = newVal;
                 _group = newVal;
                 UnselectGroupOnClose = true;
@@ -159,25 +179,99 @@ namespace glFTPd_Commander.Views
                 GroupNameTextBox.Text = _oldGroupName;
             }
             finally { _ftp.ConnectionLock.Release(); }
+
         }
 
         private async void DescriptionTextBox_LostFocus(object sender, RoutedEventArgs e)
-            => await ApplyGroupChange($"SITE GRPNFO {_group} {DescriptionTextBox.Text.Trim()}", _oldDescription!, v => _oldDescription = v, DescriptionTextBox);
+        {
+            string newVal = DescriptionTextBox.Text.Trim();
+            if (_oldDescription == newVal) return;
+            if (InputUtils.ValidateAndWarn(string.IsNullOrWhiteSpace(newVal), "Please enter a description.", DescriptionTextBox))
+            {
+                DescriptionTextBox.Text = _oldDescription;
+                DescriptionTextBox.Focus();
+                DescriptionTextBox.SelectAll();
+                return;
+            }
+        
+            await ApplyGroupChange($"SITE GRPNFO {_group} {newVal}", _oldDescription!, v => _oldDescription = v, DescriptionTextBox);
+        }
 
         private async void SlotsTextBox_LostFocus(object sender, RoutedEventArgs e)
-            => await ApplyGroupChange($"SITE GRPCHANGE {_group} slots {SlotsTextBox.Text.Trim()}", _oldSlots!, v => _oldSlots = v, SlotsTextBox);
-
+        {
+            string newVal = SlotsTextBox.Text.Trim();
+            if (InputUtils.ValidateAndWarn(
+                    string.IsNullOrWhiteSpace(newVal) ||
+                    (!(newVal.Equals("Unlimited", StringComparison.OrdinalIgnoreCase) || (int.TryParse(newVal, out int val) && val >= -1))),
+                    "Slots must be an integer not less than -1 (-1 = Unlimited).", SlotsTextBox))
+            {
+                SlotsTextBox.Text = _oldSlots;
+                return;
+            }
+            await ApplyGroupChange($"SITE GRPCHANGE {_group} slots {newVal}", _oldSlots!, v => _oldSlots = v, SlotsTextBox);
+        }
+        
         private async void LeechTextBox_LostFocus(object sender, RoutedEventArgs e)
-            => await ApplyGroupChange($"SITE GRPCHANGE {_group} leech_slots {LeechTextBox.Text.Trim()}", _oldLeech!, v => _oldLeech = v, LeechTextBox);
-
+        {
+            string newVal = LeechTextBox.Text.Trim();
+            if (InputUtils.ValidateAndWarn(
+                string.IsNullOrWhiteSpace(newVal) ||
+                !(newVal.Equals("Unlimited", StringComparison.OrdinalIgnoreCase) ||
+                  newVal.Equals("Disabled", StringComparison.OrdinalIgnoreCase) ||
+                  (int.TryParse(newVal, out int val) && val >= -2)),
+                "Leech must be an integer not less than -2 (-1 = Unlimited, -2 = Disabled).", LeechTextBox))
+            {
+                LeechTextBox.Text = _oldLeech;
+                return;
+            }
+            await ApplyGroupChange($"SITE GRPCHANGE {_group} leech_slots {newVal}", _oldLeech!, v => _oldLeech = v, LeechTextBox);
+        }
+        
         private async void AllotTextBox_LostFocus(object sender, RoutedEventArgs e)
-            => await ApplyGroupChange($"SITE GRPCHANGE {_group} allot_slots {AllotTextBox.Text.Trim()}", _oldAllot!, v => _oldAllot = v, AllotTextBox);
-
+        {
+            string newVal = AllotTextBox.Text.Trim();
+            if (InputUtils.ValidateAndWarn(
+                string.IsNullOrWhiteSpace(newVal) ||
+                !(newVal.Equals("Unlimited", StringComparison.OrdinalIgnoreCase) ||
+                  newVal.Equals("Disabled", StringComparison.OrdinalIgnoreCase) ||
+                  (int.TryParse(newVal, out int val) && val >= -2)),
+                "Allot must be an integer not less than -2 (-1 = Unlimited, -2 = Disabled).", AllotTextBox))
+            {
+                AllotTextBox.Text = _oldAllot;
+                return;
+            }
+            await ApplyGroupChange($"SITE GRPCHANGE {_group} allot_slots {newVal}", _oldAllot!, v => _oldAllot = v, AllotTextBox);
+        }
+        
         private async void MaxLoginsTextBox_LostFocus(object sender, RoutedEventArgs e)
-            => await ApplyGroupChange($"SITE GRPCHANGE {_group} max_logins {MaxLoginsTextBox.Text.Trim()}", _oldMaxLogins!, v => _oldMaxLogins = v, MaxLoginsTextBox);
+        {
+            string newVal = MaxLoginsTextBox.Text.Trim();
+            if (InputUtils.ValidateAndWarn(
+                string.IsNullOrWhiteSpace(newVal) ||
+                !(newVal.Equals("Unlimited", StringComparison.OrdinalIgnoreCase) ||
+                  (int.TryParse(newVal, out int val) && val >= 0)),
+                "Max Logins must be an integer not less than 0 (0 = Unlimited).", MaxLoginsTextBox))
+            {
+                MaxLoginsTextBox.Text = _oldMaxLogins;
+                return;
+            }
+            await ApplyGroupChange($"SITE GRPCHANGE {_group} max_logins {newVal}", _oldMaxLogins!, v => _oldMaxLogins = v, MaxLoginsTextBox);
+        }
 
         private async void CommentTextBox_LostFocus(object sender, RoutedEventArgs e)
-            => await ApplyGroupChange($"SITE GRPCHANGE {_group} comment {CommentTextBox.Text.Trim()}", _oldComment!, v => _oldComment = v, CommentTextBox);
+        {
+            string newVal = CommentTextBox.Text.Trim();
+            if (_oldComment == newVal) return;
+            if (InputUtils.ValidateAndWarn(string.IsNullOrWhiteSpace(newVal), "Please enter a comment.", CommentTextBox))
+            {
+                CommentTextBox.Text = _oldComment;
+                CommentTextBox.Focus();
+                CommentTextBox.SelectAll();
+                return;
+            }
+        
+            await ApplyGroupChange($"SITE GRPCHANGE {_group} comment {newVal}", _oldComment!, v => _oldComment = v, CommentTextBox);
+        }
 
         private async void AddButton_Click(object sender, RoutedEventArgs e)
         {
@@ -207,7 +301,6 @@ namespace glFTPd_Commander.Views
                 _ftp.ConnectionLock.Release();
             }
         }
-
         
         private async void RemoveButton_Click(object sender, RoutedEventArgs e)
         {
@@ -489,18 +582,9 @@ namespace glFTPd_Commander.Views
 
         private async void SetMaxAllotButton_Click(object sender, RoutedEventArgs e)
         {
-            _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
-                if (_ftpClient == null) return;
-
-            var win = new SetMaxAllotWindow(_ftp!, _ftpClient!, _group)
+            if (await SetMaxAllotWindow.ShowAndSetMaxAllot(Window.GetWindow(this), _ftp!, _ftpClient, _group))
             {
-                Owner = Window.GetWindow(this),
-                WindowStartupLocation = WindowStartupLocation.CenterOwner
-            };
-        
-            if (win.ShowDialog() == true)
-            {
-                GroupInfoView_Loaded(null!, null!);
+                await ReloadGroupDetails();
                 GroupChanged?.Invoke();
             }
         }

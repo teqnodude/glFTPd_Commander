@@ -42,7 +42,7 @@ namespace glFTPd_Commander
             sb.AppendLine($"Thumbprint: {cert.Thumbprint}");
             sb.AppendLine($"Serial Number: {cert.SerialNumber}");
 
-            txtCertDetails.Text = sb.ToString();
+            CertificateDetailsTextBox.Text = sb.ToString();
         }
 
         private void DisplayBasicCertificateInfo(X509Certificate cert)
@@ -55,18 +55,18 @@ namespace glFTPd_Commander
             sb.AppendLine();
             sb.AppendLine("Note: Some details unavailable due to certificate format restrictions");
 
-            txtCertDetails.Text = sb.ToString();
+            CertificateDetailsTextBox.Text = sb.ToString();
         }
 
-        private void Accept_Click(object sender, RoutedEventArgs e)
+        private void AcceptButton_Click(object sender, RoutedEventArgs e)
         {
             IsApproved = true;
-            RememberDecision = chkRemember.IsChecked ?? false;
+            RememberDecision = RememberCertificateCheckBox.IsChecked ?? false;
             DialogResult = true;
             Close();
         }
 
-        private void Reject_Click(object sender, RoutedEventArgs e)
+        private void RejectButton_Click(object sender, RoutedEventArgs e)
         {
             DialogResult = false;
             Close();

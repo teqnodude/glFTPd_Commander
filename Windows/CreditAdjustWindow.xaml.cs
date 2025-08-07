@@ -2,6 +2,7 @@
 using glFTPd_Commander.FTP;
 using glFTPd_Commander.Models;
 using glFTPd_Commander.Services;
+using glFTPd_Commander.Utils;
 using glFTPd_Commander.Windows;
 using System.Windows;
 using System.Windows.Input;
@@ -16,8 +17,8 @@ namespace glFTPd_Commander.Windows
         private readonly string _username;
         private readonly string _operation; // GIVE or TAKE
         public string OperationName => _operation.Equals("GIVE", StringComparison.OrdinalIgnoreCase) ? "Add" : "Remove";
-        public string Amount => amountText.Text.Trim();
-        public string? Unit => (unitsComboBox.SelectedItem as UnitItem)?.Code;
+        public string Amount => AmountTextBox.Text.Trim();
+        public string? Unit => (UnitsComboBox.SelectedItem as UnitItem)?.Code;
 
         public CreditAdjustWindow(GlFtpdClient ftp, FtpClient ftpClient, string username, string operation)
         {
@@ -27,21 +28,16 @@ namespace glFTPd_Commander.Windows
             _username = username;
             _operation = operation.ToUpperInvariant(); // GIVE or TAKE
 
-            unitsComboBox.ItemsSource = UnitProvider.SizeUnits;
-            unitsComboBox.SelectedIndex = 1; // default to GiB
+            UnitsComboBox.ItemsSource = UnitProvider.SizeUnits;
+            UnitsComboBox.SelectedIndex = 1; // default to GiB
 
             this.Title = $"{OperationName} Credits";
-            this.Loaded += (s, e) => amountText.Focus();
+            this.Loaded += (s, e) => AmountTextBox.Focus();
         }
 
         private async void OkButton_Click(object sender, RoutedEventArgs e)
         {
-            if (string.IsNullOrWhiteSpace(Amount) || Unit == null)
-            {
-                MessageBox.Show("Please enter an amount and select a unit.", "Missing Input",
-                    MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
+            if (InputUtils.ValidateAndWarn(string.IsNullOrWhiteSpace(Amount), "Please enter a credit amount.", AmountTextBox)) return;
 
             string command = $"SITE {_operation} {_username} {Amount}{Unit}";
 

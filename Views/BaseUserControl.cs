@@ -26,7 +26,5 @@ namespace glFTPd_Commander.Views
                 );
             }
         }
-
-
     }
 }

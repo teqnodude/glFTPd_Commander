@@ -15,7 +15,6 @@ using System.Windows.Threading;
 using static glFTPd_Commander.FTP.GlFtpdClient;
 using Debug = System.Diagnostics.Debug;
 
-
 namespace glFTPd_Commander
 {
     public partial class MainWindow : Window, INotifyPropertyChanged
@@ -207,8 +206,8 @@ namespace glFTPd_Commander
             PopulateConnectMenu(); 
             this.DataContext = this;
             this.Title = $"glFTPd Commander v{Version} by {Author} - Not connected";
-            disconnectMenuItem.IsEnabled = false;
-            usersGroupsMenuItem.Visibility = Visibility.Collapsed;
+            DisconnectMenuItem.IsEnabled = false;
+            UsersGroupsMenuItem.Visibility = Visibility.Collapsed;
             Loaded += async (s, e) => await glFTPd_Commander.Utils.UpdateChecker.CheckAndPromptForUpdate();
 
             // Load slots from SettingsManager (keep your ObservableCollection as UI source)
@@ -397,7 +396,6 @@ namespace glFTPd_Commander
             }
         }
 
-
         private void FtpTreeView_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
         {
             if (_popupOpen) return;
@@ -503,7 +501,7 @@ namespace glFTPd_Commander
             return _ftp?.Username ?? string.Empty;
         }
 
-        private void SiteManager_Click(object sender, RoutedEventArgs e)
+        private void SiteManagerMenuItem_Click(object sender, RoutedEventArgs e)
         {
             var settingsWindow = new SettingsWindow { Owner = this };
             if (settingsWindow.ShowDialog() == true)
@@ -521,7 +519,7 @@ namespace glFTPd_Commander
             this.Title = $"{baseTitle} for {elapsed:hh\\:mm\\:ss}";
         }
 
-        private void Disconnect_Click(object sender, RoutedEventArgs e)
+        private void DisconnectMenuItem_Click(object sender, RoutedEventArgs e)
         {
             try
             {
@@ -534,11 +532,13 @@ namespace glFTPd_Commander
                     RootItems.Clear();
                     UserGroupInfoContent.Content = null;
 
+                    CommandOutputTextBox.Clear();
+
                     connectionTimer?.Stop();
                     baseTitle = "glFTPd Commander {version} by Teqno - Not connected";
                     this.Title = baseTitle;
-                    disconnectMenuItem.IsEnabled = false;
-                    usersGroupsMenuItem.Visibility = Visibility.Collapsed;
+                    DisconnectMenuItem.IsEnabled = false;
+                    UsersGroupsMenuItem.Visibility = Visibility.Collapsed;
                     OnPropertyChanged(nameof(IsConnected));
                 }
                 else
@@ -554,7 +554,7 @@ namespace glFTPd_Commander
             }
         }
 
-        private void About_Click(object sender, RoutedEventArgs e)
+        private void AboutMenuItem_Click(object sender, RoutedEventArgs e)
         {
             var aboutWindow = new AboutWindow
             {
@@ -564,7 +564,7 @@ namespace glFTPd_Commander
             aboutWindow.ShowDialog();
         }
 
-        private void Help_Click(object sender, RoutedEventArgs e)
+        private void UserGuideMenuItem_Click(object sender, RoutedEventArgs e)
         {
             var helpWindow = new HelpWindow
             {
@@ -574,7 +574,7 @@ namespace glFTPd_Commander
             helpWindow.ShowDialog();
         }
 
-       private void UserAdd_Click(object sender, RoutedEventArgs e)
+       private void AddUserMenuItem_Click(object sender, RoutedEventArgs e)
         {
             var addUserWindow = new AddUserWindow(_ftp!, _ftpClient!)
             {
@@ -588,7 +588,7 @@ namespace glFTPd_Commander
             }
         }
         
-        private void GroupAdd_Click(object sender, RoutedEventArgs e)
+        private void AddGroupMenuItem_Click(object sender, RoutedEventArgs e)
         {
             var addGroupWindow = new AddGroupWindow(_ftp!, _ftpClient!)
             {
@@ -661,13 +661,13 @@ namespace glFTPd_Commander
             }
         }
 
-        private void ExpandAll_Click(object sender, RoutedEventArgs e)
+        private void ExpandAllTextBlock_Click(object sender, RoutedEventArgs e)
         {
             foreach (var item in RootItems)
                 SetExpandedRecursive(item, true);
         }
         
-        private void CollapseAll_Click(object sender, RoutedEventArgs e)
+        private void CollapseAllTextBlock_Click(object sender, RoutedEventArgs e)
         {
             foreach (var item in RootItems)
                 SetExpandedRecursive(item, false);
@@ -680,11 +680,6 @@ namespace glFTPd_Commander
                 SetExpandedRecursive(child, expanded);
         }
 
-        private async void SendCommandButton_Click(object sender, RoutedEventArgs e)
-        {
-            await ExecuteCustomCommandAsync();
-        }
-        
         private async void CommandInputComboBox_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key == Key.Enter)
@@ -745,13 +740,13 @@ namespace glFTPd_Commander
 
         public void PopulateConnectMenu()
         {
-            connectMenuItem.Items.Clear();
+            ConnectMenuItem.Items.Clear();
         
             var connections = SettingsManager.GetFtpConnections();
             if (connections.Count == 0)
             {
-                connectMenuItem.Items.Clear();
-                connectMenuItem.Items.Add(new MenuItem
+                ConnectMenuItem.Items.Clear();
+                ConnectMenuItem.Items.Add(new MenuItem
                 {
                     Header = "(No connections found)",
                     IsEnabled = false
@@ -759,7 +754,7 @@ namespace glFTPd_Commander
                 return;
             }
             
-            connectMenuItem.Items.Clear();
+            ConnectMenuItem.Items.Clear();
             foreach (var conn in connections)
             {
                 var item = new MenuItem
@@ -768,7 +763,7 @@ namespace glFTPd_Commander
                     Tag = conn
                 };
                 item.Click += ConnectToSelectedConnection_Click;
-                connectMenuItem.Items.Add(item);
+                ConnectMenuItem.Items.Add(item);
             }
 
         }
@@ -826,8 +821,8 @@ namespace glFTPd_Commander
         
                 baseTitle = $"glFTPd Commander v{Version} by {Author} - Connected to {conn.Name}";
                 this.Title = baseTitle;
-                disconnectMenuItem.IsEnabled = true;
-                usersGroupsMenuItem.Visibility = Visibility.Visible;
+                DisconnectMenuItem.IsEnabled = true;
+                UsersGroupsMenuItem.Visibility = Visibility.Visible;
                 _currentConnectionEncryptedName = conn.Name;
                 OnPropertyChanged(nameof(IsConnected));
                 connectionStartTime = DateTime.Now;
@@ -857,8 +852,8 @@ namespace glFTPd_Commander
         
             connectionTimer?.Stop();
             this.Title = $"glFTPd Commander v{Version} by {Author} - Not connected";
-            disconnectMenuItem.IsEnabled = false;
-            usersGroupsMenuItem.Visibility = Visibility.Collapsed;
+            DisconnectMenuItem.IsEnabled = false;
+            UsersGroupsMenuItem.Visibility = Visibility.Collapsed;
             _currentConnectionEncryptedName = null;
             OnPropertyChanged(nameof(IsConnected));
         

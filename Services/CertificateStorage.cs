@@ -1,5 +1,7 @@
-﻿using System.IO;
+﻿using FluentFTP;
+using System.IO;
 using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
 
 namespace glFTPd_Commander.Services
@@ -106,6 +108,109 @@ namespace glFTPd_Commander.Services
                 return false;
             }
         }
+
+        public static void AttachFtpCertificateValidation(
+            FtpClient client,
+            object promptLock,
+            HashSet<string> approvedInSession,
+            HashSet<string> rejectedInSession,
+            HashSet<string> promptingThumbprints,
+            string host)
+        {
+            client.ValidateCertificate += (sender, e) =>
+            {
+                if (e.Certificate == null)
+                {
+                    e.Accept = false;
+                    return;
+                }
+        
+                string thumbprint;
+                string subject;
+                try
+                {
+                    using var cert2 = new X509Certificate2(e.Certificate);
+                    thumbprint = cert2.Thumbprint;
+                    subject = cert2.Subject;
+                }
+                catch (CryptographicException)
+                {
+                    thumbprint = e.Certificate.GetCertHashString();
+                    subject = e.Certificate.Subject;
+                }
+        
+                lock (promptLock)
+                {
+                    if (rejectedInSession.Contains(thumbprint))
+                    {
+                        e.Accept = false;
+                        return;
+                    }
+        
+                    if (approvedInSession.Contains(thumbprint))
+                    {
+                        e.Accept = true;
+                        return;
+                    }
+        
+                    if (IsCertificateApproved(thumbprint, host))
+                    {
+                        approvedInSession.Add(thumbprint);
+                        e.Accept = true;
+                        return;
+                    }
+        
+                    while (promptingThumbprints.Contains(thumbprint))
+                        Monitor.Wait(promptLock);
+        
+                    if (approvedInSession.Contains(thumbprint))
+                    {
+                        e.Accept = true;
+                        return;
+                    }
+        
+                    promptingThumbprints.Add(thumbprint);
+                }
+        
+                try
+                {
+                    bool? dialogResult = null;
+                    bool rememberDecision = false;
+        
+                    System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        var certWindow = new CertificateWindow(e.Certificate);
+                        dialogResult = certWindow.ShowDialog();
+                        rememberDecision = certWindow.RememberDecision;
+                    });
+        
+                    lock (promptLock)
+                    {
+                        if (dialogResult == true)
+                        {
+                            approvedInSession.Add(thumbprint);
+                            ApproveCertificate(thumbprint, subject, rememberDecision, host);
+                            e.Accept = true;
+                        }
+                        else
+                        {
+                            rejectedInSession.Add(thumbprint);
+                            e.Accept = false;
+                            client.Disconnect();
+                        }
+                    }
+                }
+                finally
+                {
+                    lock (promptLock)
+                    {
+                        promptingThumbprints.Remove(thumbprint);
+                        Monitor.PulseAll(promptLock);
+                    }
+                }
+            };
+        }
+
         
         public static void ApproveCertificate(string thumbprint, string subject, bool remember, string? connectionName = null)
         {
@@ -213,7 +318,6 @@ namespace glFTPd_Commander.Services
                 return plainText; // Return original if encryption fails
             }
         }
-
 
         private static string DecryptString(string cipherText)
         {

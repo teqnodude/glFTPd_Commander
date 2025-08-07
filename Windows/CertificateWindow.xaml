@@ -13,15 +13,24 @@
         </Grid.RowDefinitions>
 
         <TextBlock Text="Server Certificate Details:" FontWeight="Bold"/>
-        <TextBox x:Name="txtCertDetails" Grid.Row="1" IsReadOnly="True" 
-                 VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
-                 TextWrapping="Wrap" Margin="0,5,0,10"/>
 
-        <CheckBox x:Name="chkRemember" Grid.Row="2" Content="Remember this certificate" Margin="0,0,0,10"/>
+        <TextBox x:Name="CertificateDetailsTextBox"
+         Grid.Row="1"
+         IsReadOnly="True"
+         VerticalScrollBarVisibility="Auto"
+         HorizontalScrollBarVisibility="Auto"
+         TextWrapping="Wrap"
+         Margin="0,5,0,10"/>
+
+        <CheckBox x:Name="RememberCertificateCheckBox"
+          Grid.Row="2"
+          Content="Remember this certificate"
+          Margin="0,0,0,10"/>
 
         <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right">
-            <Button Content="Accept" Width="80" Margin="0,0,10,0" Click="Accept_Click"/>
-            <Button Content="Reject" Width="80" Click="Reject_Click"/>
+            <Button x:Name="AcceptButton" Content="Accept" Width="80" Margin="0,0,10,0" Click="AcceptButton_Click"/>
+            <Button x:Name="RejectButton" Content="Reject" Width="80" Click="RejectButton_Click"/>
         </StackPanel>
+
     </Grid>
 </Window>

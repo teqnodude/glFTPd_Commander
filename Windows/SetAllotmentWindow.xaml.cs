@@ -2,6 +2,7 @@
 using glFTPd_Commander.FTP;
 using glFTPd_Commander.Models;
 using glFTPd_Commander.Services;
+using glFTPd_Commander.Utils;
 using glFTPd_Commander.Windows;
 using System.Windows;
 using System.Windows.Input;
@@ -15,9 +16,9 @@ namespace glFTPd_Commander.Windows
         private FtpClient? _ftpClient;
         private readonly string _username;
 
-        public string Section => sectionText.Text.Trim();
-        public string Amount => amountText.Text.Trim();
-        public string? Unit => (unitsComboBox.SelectedItem as UnitItem)?.Code;
+        public string Section => SectionTextBox.Text.Trim();
+        public string Amount => AmountTextBox.Text.Trim();
+        public string? Unit => (UnitsComboBox.SelectedItem as UnitItem)?.Code;
 
         public SetAllotmentWindow(GlFtpdClient ftp, FtpClient ftpClient, string username)
         {
@@ -26,19 +27,15 @@ namespace glFTPd_Commander.Windows
             _ftpClient = ftpClient;
             _username = username;
 
-            unitsComboBox.ItemsSource = UnitProvider.SizeUnits;
-            unitsComboBox.SelectedIndex = 1; // Default to GiB
-            sectionText.Text = "0"; // Default section
-            Loaded += (s, e) => amountText.Focus();
+            UnitsComboBox.ItemsSource = UnitProvider.SizeUnits;
+            UnitsComboBox.SelectedIndex = 1; // Default to GiB
+            SectionTextBox.Text = "0"; // Default section
+            Loaded += (s, e) => AmountTextBox.Focus();
         }
 
         private async void OkButton_Click(object sender, RoutedEventArgs e)
         {
-            if (string.IsNullOrWhiteSpace(Section) || string.IsNullOrWhiteSpace(Amount) || Unit == null)
-            {
-                MessageBox.Show("Please fill in all fields.", "Missing Input", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
+            if (InputUtils.ValidateAndWarn(string.IsNullOrWhiteSpace(Amount), "Please enter an amount.", AmountTextBox)) return;
 
             string command = $"SITE CHANGE {_username} wkly_allotment {Section},{Amount}{Unit}";
 

@@ -118,106 +118,7 @@ namespace glFTPd_Commander.FTP
                 }
             };
         
-            client.ValidateCertificate += (sender, e) => 
-            {
-                if (e.Certificate == null)
-                {
-                    e.Accept = false;
-                    return;
-                }
-        
-                try
-                {
-                    string thumbprint;
-                    string subject;
-        
-                    try
-                    {
-                        using var cert2 = new X509Certificate2(e.Certificate);
-                        thumbprint = cert2.Thumbprint;
-                        subject = cert2.Subject;
-                    }
-                    catch (CryptographicException)
-                    {
-                        thumbprint = e.Certificate.GetCertHashString();
-                        subject = e.Certificate.Subject;
-                    }
-        
-                    lock (promptLock)
-                    {
-                        if (rejectedInSession.Contains(thumbprint))
-                        {
-                            e.Accept = false;
-                            return;
-                        }
-        
-                        if (approvedInSession.Contains(thumbprint)) 
-                        {
-                            e.Accept = true;
-                            return;
-                        }
-        
-                        if (CertificateStorage.IsCertificateApproved(thumbprint, Host))
-                        {
-                            approvedInSession.Add(thumbprint);
-                            e.Accept = true;
-                            return;
-                        }
-        
-                        while (promptingThumbprints.Contains(thumbprint))
-                            Monitor.Wait(promptLock);
-        
-                        if (approvedInSession.Contains(thumbprint))
-                        {
-                            e.Accept = true;
-                            return;
-                        }
-        
-                        promptingThumbprints.Add(thumbprint);
-                    }
-        
-                    try
-                    {
-                        bool? dialogResult = null;
-                        bool rememberDecision = false;
-        
-                        System.Windows.Application.Current.Dispatcher.Invoke(() =>
-                        {
-                            var certWindow = new CertificateWindow(e.Certificate);
-                            dialogResult = certWindow.ShowDialog();
-                            rememberDecision = certWindow.RememberDecision;
-                        });
-        
-                        lock (promptLock)
-                        {
-                            if (dialogResult == true)
-                            {
-                                approvedInSession.Add(thumbprint);
-                                CertificateStorage.ApproveCertificate(thumbprint, subject, rememberDecision, Host);
-                                e.Accept = true;
-                            }
-                            else
-                            {
-                                rejectedInSession.Add(thumbprint);
-                                e.Accept = false;
-                                client.Disconnect();
-                            }
-                        }
-                    }
-                    finally
-                    {
-                        lock (promptLock)
-                        {
-                            promptingThumbprints.Remove(thumbprint);
-                            Monitor.PulseAll(promptLock);
-                        }
-                    }
-                }
-                catch
-                {
-                    e.Accept = false;
-                }
-            };
+            CertificateStorage.AttachFtpCertificateValidation(client, promptLock, approvedInSession, rejectedInSession, promptingThumbprints, Host);
         
             return client;
         }
@@ -350,7 +251,6 @@ namespace glFTPd_Commander.FTP
             return result ?? [];
         }
 
-
         public async Task<List<FtpUser>> GetDeletedUsers(FtpClient? client = null)
         {
             var (result, _) = await FtpBase.ExecuteWithConnectionAsync(
@@ -397,60 +297,58 @@ namespace glFTPd_Commander.FTP
             var (result, _) = await FtpBase.ExecuteWithConnectionAsync(
                 client, this, async c =>
                 {
-                    return await Task.Run(() =>
-                    {
-                        var reply = c.Execute($"SITE USER {username}");
-                        var details = new FtpUserDetails { Username = username };
-        
-                        string fullResponse = (reply.InfoMessages ?? string.Empty) + "\n" + (reply.Message ?? string.Empty);
-        
-                        var usernameMatch = UsernameRegex().Match(fullResponse);
-                        if (usernameMatch.Success)
-                            details.Username = usernameMatch.Groups[1].Value.Trim();
-        
-                        var flagsMatch = FlagsRegex().Match(fullResponse);
-                        if (flagsMatch.Success)
-                            details.Flags = flagsMatch.Groups[1].Value.Trim();
-        
-                        var groupsMatch = GroupsRegex().Match(fullResponse);
-                        if (groupsMatch.Success)
-                            details.Groups.AddRange(groupsMatch.Groups[1].Value.Trim()
-                                .Split([' '], StringSplitOptions.RemoveEmptyEntries));
-        
-                        details.IpRestrictions.Clear();
-                        var ipLines = fullResponse.Split('\n')
-                            .Where(line => line.Contains("| IP") && line.Contains(':'))
-                            .ToList();
-        
-                        foreach (var line in ipLines)
-                            ProcessIpLine(line, details);
-        
-                        return details;
-                    });
+                    // Use ExecuteFtpCommandWithReconnectAsync instead of direct execution
+                    var (response, _) = await FtpBase.ExecuteFtpCommandWithReconnectAsync(
+                        $"SITE USER {username}", 
+                        c, 
+                        this);
+                    
+                    return await Task.Run(() => ParseUserDetails(response, username));
                 }
             );
             return result;
         }
+        
+        private static FtpUserDetails ParseUserDetails(string fullResponse, string username)
+        {
+            var details = new FtpUserDetails { Username = username };
+        
+            var usernameMatch = UsernameRegex().Match(fullResponse);
+            if (usernameMatch.Success)
+                details.Username = usernameMatch.Groups[1].Value.Trim();
+        
+            var flagsMatch = FlagsRegex().Match(fullResponse);
+            if (flagsMatch.Success)
+                details.Flags = flagsMatch.Groups[1].Value.Trim();
+        
+            var groupsMatch = GroupsRegex().Match(fullResponse);
+            if (groupsMatch.Success)
+                details.Groups.AddRange(groupsMatch.Groups[1].Value.Trim()
+                    .Split([' '], StringSplitOptions.RemoveEmptyEntries));
+        
+            details.IpRestrictions.Clear();
+            var ipLines = fullResponse.Split('\n')
+                .Where(line => line.Contains("| IP") && line.Contains(':'))
+                .ToList();
+        
+            foreach (var line in ipLines)
+                ProcessIpLine(line, details);
+        
+            return details;
+        }
 
         private static void ProcessIpLine(string line, FtpUserDetails details)
         {
-            var ipFields = line.Split(["IP"], StringSplitOptions.RemoveEmptyEntries)
-                              .Where(f => f.Contains(':'))
-                              .ToList();
-
-            foreach (var field in ipFields)
+            // This will match each IP field correctly, even for IPv6 and with multiple fields per line
+            foreach (Match m in GlftpdIpRegex().Matches(line))        
             {
-                var parts = field.Split(':');
-                if (parts.Length >= 2)
+                var ipNumber = m.Groups["num"].Value.Trim();
+                var ipValue = m.Groups["val"].Value.Trim();
+        
+                if (!string.IsNullOrWhiteSpace(ipValue))
                 {
-                    var ipNumber = parts[0].Trim();
-                    var ipValue = parts[1].Split([' ', '|'], StringSplitOptions.RemoveEmptyEntries)
-                                         .FirstOrDefault()?.Trim();
-
-                    if (!string.IsNullOrWhiteSpace(ipValue) && ipValue != "|")
-                    {
-                        details.AddIpRestriction(ipNumber, ipValue);
-                    }
+                    Debug.WriteLine($"[ProcessIpLine] Found IP{ipNumber}: '{ipValue}'");
+                    details.AddIpRestriction($"{ipNumber}", ipValue);
                 }
             }
         }
@@ -462,16 +360,6 @@ namespace glFTPd_Commander.FTP
 
             client = await FtpBase.EnsureConnectedAsync(client, ftp);
             return (client?.IsConnected == true) ? client : null;
-        }
-
-
-        private static void ShowError(string title, Exception ex)
-        {
-            System.Windows.Application.Current.Dispatcher.Invoke(() => 
-            {
-                System.Windows.MessageBox.Show($"{title}: {ex.Message}", "Error", 
-                    MessageBoxButton.OK, MessageBoxImage.Error);
-            });
         }
 
         public class FtpUser
@@ -538,6 +426,10 @@ namespace glFTPd_Commander.FTP
         
         [GeneratedRegex(@"Groups:\s+([^\|]+)")]
         private static partial Regex GroupsRegex();
+
+        [GeneratedRegex(@"IP(?<num>\d+):\s*(?<val>.*?)(?=(IP\d+:|[|]|$))", RegexOptions.Compiled)]
+        private static partial Regex GlftpdIpRegex();
+
 
     }
 }

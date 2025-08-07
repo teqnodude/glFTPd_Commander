@@ -5,7 +5,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:local="clr-namespace:glFTPd_Commander.Views"
              mc:Ignorable="d"
-             d:DesignHeight="700" d:DesignWidth="1130">
+             d:DesignHeight="800" d:DesignWidth="1430">
 
     <local:BaseUserControl.Resources>
         <ToolTip x:Key="FlagsHelpTooltip" MaxWidth="600">
@@ -68,118 +68,113 @@ permissions in the config file.</TextBlock>
 
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="250"/>
-                <!-- First column -->
                 <ColumnDefinition Width="250"/>
-                <!-- Second column -->
-                <ColumnDefinition Width="630"/>
-                <!-- Third column -->
+                <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
             <Label Content="User Information"
-                       Grid.Row="0"
-                       Grid.Column="0"
-                       Grid.ColumnSpan="3"
-                       FontSize="16" 
-                       FontWeight="Bold" 
-                       Margin="0 0 0 20"
-                       HorizontalAlignment="Center" />
+           Grid.Row="0"
+           Grid.Column="0"
+           Grid.ColumnSpan="3"
+           FontSize="16"
+           FontWeight="Bold"
+           Margin="0 0 0 20"
+           HorizontalAlignment="Center" />
 
             <!-- First column -->
             <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,10,0">
                 <Label Content="Username:"/>
-                <TextBox x:Name="usernameText" GotFocus="MoveCaretToEnd" Margin="0,0,0,5" LostFocus="UsernameTextBox_LostFocus" Focusable="True"/>
+                <TextBox x:Name="UsernameTextBox" GotFocus="MoveCaretToEnd" Margin="0,0,0,5" LostFocus="UsernameTextBox_LostFocus" Focusable="True"/>
 
                 <Label Content="User Comment:"/>
-                <TextBox x:Name="userCommentText" GotKeyboardFocus="SelectAllText" Margin="0,0,0,5" ToolTip="Max 49 symbols" LostFocus="UserCommentText_LostFocus"/>
+                <TextBox x:Name="UserCommentTextBox" GotKeyboardFocus="SelectAllText" Margin="0,0,0,5" ToolTip="Max 49 symbols" LostFocus="UserCommentTextBox_LostFocus"/>
 
                 <Label Content="Added by:"/>
-                <TextBox x:Name="addedByText" IsReadOnly="True" Margin="0,0,0,5" />
+                <TextBox x:Name="AddedByTextBox" IsReadOnly="True" Margin="0,0,0,5" />
 
                 <Label Content="Time On Today:"/>
-                <TextBox x:Name="timeOnTodayText" IsReadOnly="True" Margin="0,0,0,5" />
+                <TextBox x:Name="TimeOnTodayTextBox" IsReadOnly="True" Margin="0,0,0,5" />
 
                 <Label Content="Flags:"/>
-                <TextBox x:Name="flagsText" PreviewTextInput="FlagsInput" Margin="0,0,0,5" ToolTip="{StaticResource FlagsHelpTooltip}" LostFocus="FlagsTextBox_LostFocus"/>
+                <TextBox x:Name="FlagsTextBox" PreviewTextInput="FlagsInput" Margin="0,0,0,5" ToolTip="{StaticResource FlagsHelpTooltip}" LostFocus="FlagsTextBox_LostFocus"/>
 
                 <Label Content="Ratios:"/>
-                <TextBox x:Name="ratiosText" PreviewTextInput="ValueInput" GotKeyboardFocus="SelectAllText" Margin="0,0,0,5" ToolTip="3 = Upload 1 MiB per 3 MiB downloaded, 0 = Unlimited" LostFocus="RatiosTextBox_LostFocus"/>
+                <TextBox x:Name="RatiosTextBox" PreviewTextInput="ValueInput" GotKeyboardFocus="SelectAllText" Margin="0,0,0,5" ToolTip="3 = Upload 1 MiB per 3 MiB downloaded, 0 = Unlimited" LostFocus="RatiosTextBox_LostFocus"/>
 
                 <StackPanel Margin="0,0,0,5">
                     <Label Content="Credits:"/>
                     <StackPanel Orientation="Horizontal">
-                        <TextBox x:Name="creditsText" IsReadOnly="True" Width="119" Margin="0,0,10,0"/>
-                        <Button x:Name="addCreditsButton" Content="Add" Margin="0,0,10,0" Click="AddCreditsButton_Click"/>
-                        <Button x:Name="takeCreditsButton" Content="Take" Margin="0,0,0,0" Click="TakeCreditsButton_Click"/>
+                        <TextBox x:Name="CreditsTextBox" IsReadOnly="True" Width="119" Margin="0,0,10,0"/>
+                        <Button x:Name="AddCreditsButton" Content="Add" Margin="0,0,10,0" Click="AddCreditsButton_Click"/>
+                        <Button x:Name="TakeCreditsButton" Content="Take" Margin="0,0,0,0" Click="TakeCreditsButton_Click"/>
                     </StackPanel>
                 </StackPanel>
 
-				<Label Content="Current Logins:"/>
-				<TextBox x:Name="currentLoginsText" IsReadOnly="True" Margin="0,0,0,5"/>
-				
+                <Label Content="Current Logins:"/>
+                <TextBox x:Name="CurrentLoginsTextBox" IsReadOnly="True" Margin="0,0,0,5"/>
+
                 <Label Content="Total Logins:"/>
-                <TextBox x:Name="totalLoginsText" IsReadOnly="True" Margin="0,0,0,5"/>
+                <TextBox x:Name="TotalLoginsTextBox" IsReadOnly="True" Margin="0,0,0,5"/>
 
                 <Label Content="Max Logins:"/>
-                <TextBox x:Name="maxLoginsText" PreviewTextInput="ValueInput" GotKeyboardFocus="SelectAllText" Margin="0,0,0,5" ToolTip="0 = Unlimited" LostFocus="MaxLoginsText_LostFocus"/>
+                <TextBox x:Name="MaxLoginsTextBox" PreviewTextInput="ValueInput" GotKeyboardFocus="SelectAllText" Margin="0,0,0,5" ToolTip="0 = Unlimited" LostFocus="MaxLoginsTextBox_LostFocus"/>
 
                 <Label Content="Max Sim Uploads:"/>
-                <TextBox x:Name="maxSimUploadsText" PreviewTextInput="ValueInput" GotKeyboardFocus="SelectAllText" Margin="0,0,0,5" ToolTip="-1 = Unlimited, 0 = None, max 30000" LostFocus="MaxSimUploadsText_LostFocus"/>
+                <TextBox x:Name="MaxSimUploadsTextBox" PreviewTextInput="ValueInput" GotKeyboardFocus="SelectAllText" Margin="0,0,0,5" ToolTip="-1 = Unlimited, 0 = None, max 30000" LostFocus="MaxSimUploadsTextBox_LostFocus"/>
 
                 <Label Content="Max Sim Downloads:"/>
-                <TextBox x:Name="maxSimDownloadsText" PreviewTextInput="ValueInput" GotKeyboardFocus="SelectAllText" Margin="0,0,0,5" ToolTip="-1 = Unlimited, 0 = None" LostFocus="MaxSimDownloadsText_LostFocus"/>
+                <TextBox x:Name="MaxSimDownloadsTextBox" PreviewTextInput="ValueInput" GotKeyboardFocus="SelectAllText" Margin="0,0,0,5" ToolTip="-1 = Unlimited, 0 = None" LostFocus="MaxSimDownloadsTextBox_LostFocus"/>
 
                 <Label Content="From same IP:"/>
-                <TextBox x:Name="fromSameIpText" PreviewTextInput="ValueInput" GotKeyboardFocus="SelectAllText" Margin="0,0,0,5" ToolTip="0 = Unlimited" LostFocus="FromSameIpText_LostFocus"/>
-
-                
+                <TextBox x:Name="FromSameIpTextBox" PreviewTextInput="ValueInput" GotKeyboardFocus="SelectAllText" Margin="0,0,0,5" ToolTip="0 = Unlimited" LostFocus="FromSameIpTextBox_LostFocus"/>
             </StackPanel>
 
             <!-- Second column -->
             <StackPanel Grid.Row="1" Grid.Column="1">
                 <Label Content="Created:"/>
-                <TextBox x:Name="createdText" IsReadOnly="True" Margin="0,0,0,5"/>
+                <TextBox x:Name="CreatedTextBox" IsReadOnly="True" Margin="0,0,0,5"/>
 
                 <Label Content="Expires:"/>
-                <TextBox x:Name="expiresText" PreviewTextInput="ExpiresInput" GotKeyboardFocus="SelectAllText" Margin="0,0,0,5" ToolTip="YYYY-mm-dd, 0 = disable" LostFocus="ExpiresTextBox_LostFocus"/>
+                <TextBox x:Name="ExpiresTextBox" PreviewTextInput="ExpiresInput" GotKeyboardFocus="SelectAllText" Margin="0,0,0,5" ToolTip="YYYY-mm-dd, 0 = disable" LostFocus="ExpiresTextBox_LostFocus"/>
 
                 <Label Content="Last seen:"/>
-                <TextBox x:Name="lastSeenText" IsReadOnly="True" Margin="0,0,0,5"/>
+                <TextBox x:Name="LastSeenTextBox" IsReadOnly="True" Margin="0,0,0,5"/>
 
                 <Label Content="Idle time:"/>
-                <TextBox x:Name="idleTimeText" PreviewTextInput="ValueInput" GotKeyboardFocus="SelectAllText" Margin="0,0,0,5" ToolTip="In seconds, -1 = Disable" LostFocus="IdleTimeTextBox_LostFocus"/>
+                <TextBox x:Name="IdleTimeTextBox" PreviewTextInput="ValueInput" GotKeyboardFocus="SelectAllText" Margin="0,0,0,5" ToolTip="In seconds, -1 = Disable" LostFocus="IdleTimeTextBox_LostFocus"/>
 
                 <Label Content="Max Upload Speed:"/>
                 <StackPanel Orientation="Horizontal">
-                    <TextBox x:Name="maxUploadSpeedText" IsReadOnly="True" Width="190" Margin="0,0,10,0" ToolTip="0 = Unlimited"/>
-                    <Button Content="Set" Width="50" Click="SetMaxUploadSpeed_Click"/>
+                    <TextBox x:Name="MaxUploadSpeedTextBox" IsReadOnly="True" Width="190" Margin="0,0,10,0" ToolTip="0 = Unlimited"/>
+                    <Button x:Name="SetMaxUploadSpeedButton" Content="Set" Width="50" Click="SetMaxUploadSpeed_Click"/>
                 </StackPanel>
 
                 <Label Content="Max Download Speed:"/>
                 <StackPanel Orientation="Horizontal">
-                    <TextBox x:Name="maxDownloadSpeedText" IsReadOnly="True" Width="190" Margin="0,0,10,0" ToolTip="0 = Unlimited"/>
-                    <Button Content="Set" Width="50" Click="SetMaxDownloadSpeed_Click"/>
+                    <TextBox x:Name="MaxDownloadSpeedTextBox" IsReadOnly="True" Width="190" Margin="0,0,10,0" ToolTip="0 = Unlimited"/>
+                    <Button x:Name="SetMaxDownloadSpeedButton" Content="Set" Width="50" Click="SetMaxDownloadSpeed_Click"/>
                 </StackPanel>
 
                 <Label Content="Times Nuked:"/>
-				<TextBox x:Name="timesNukedText" IsReadOnly="True" Margin="0,0,0,5"/>
+                <TextBox x:Name="TimesNukedTextBox" IsReadOnly="True" Margin="0,0,0,5"/>
 
                 <Label Content="Bytes Nuked:"/>
-                <TextBox x:Name="bytesNukedText" IsReadOnly="True" Margin="0,0,0,5"/>
+                <TextBox x:Name="BytesNukedTextBox" IsReadOnly="True" Margin="0,0,0,5"/>
 
                 <Label Content="Weekly Allotment:"/>
                 <StackPanel Orientation="Horizontal">
-                    <TextBox x:Name="weeklyAllotmentText" IsReadOnly="True" Width="190" Margin="0,0,10,0" ToolTip="0 = disabled"/>
-                    <Button x:Name="setAllotmentButton" Content="Set" Width="50" Click="SetAllotmentButton_Click"/>
+                    <TextBox x:Name="WeeklyAllotmentTextBox" IsReadOnly="True" Width="190" Margin="0,0,10,0" ToolTip="0 = disabled"/>
+                    <Button x:Name="SetAllotmentButton" Content="Set" Width="50" Click="SetAllotmentButton_Click"/>
                 </StackPanel>
 
                 <Label Content="Time Limit:"/>
-                <TextBox x:Name="timeLimitText" PreviewTextInput="ValueInput" GotKeyboardFocus="SelectAllText" Margin="0,0,0,5" ToolTip="In minutes, 0 = Unlimited" LostFocus="TimeLimitText_LostFocus"/>
+                <TextBox x:Name="TimeLimitTextBox" PreviewTextInput="ValueInput" GotKeyboardFocus="SelectAllText" Margin="0,0,0,5" ToolTip="In minutes, 0 = Unlimited" LostFocus="TimeLimitTextBox_LostFocus"/>
 
                 <Label Content="Timeframe:"/>
-                <TextBox x:Name="timeframeText" GotKeyboardFocus="SelectAllText" Margin="0,0,0,5" ToolTip="8 17 for between 08-17" LostFocus="TimeframeText_LostFocus"/>
+                <TextBox x:Name="TimeframeTextBox" GotKeyboardFocus="SelectAllText" Margin="0,0,0,5" ToolTip="8 17 for between 08-17" LostFocus="TimeframeTextBox_LostFocus"/>
 
                 <Label Content="Tagline:"/>
-                <TextBox x:Name="taglineText" GotKeyboardFocus="SelectAllText" Margin="0,0,0,5" ToolTip="Max 63 symbols" LostFocus="TaglineText_LostFocus"/>
+                <TextBox x:Name="TaglineTextBox" GotKeyboardFocus="SelectAllText" Margin="0,0,0,5" ToolTip="Max 63 symbols" LostFocus="TaglineTextBox_LostFocus"/>
             </StackPanel>
 
             <!-- Third column -->
@@ -195,7 +190,9 @@ permissions in the config file.</TextBlock>
                     <!-- Group Management Section -->
                     <Grid>
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="250"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="250"/>
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
@@ -203,32 +200,58 @@ permissions in the config file.</TextBlock>
                         <!-- Available Groups -->
                         <StackPanel Grid.Column="0">
                             <Label Content="Available Groups:"/>
-                            <ListBox x:Name="availableGroupsList"
-						     Width="250"
+                            <ListBox x:Name="AvailableGroupsListBox"
+                             Width="250"
                              Height="250"
+                             HorizontalAlignment="Left"
                              SelectionMode="Extended"/>
                         </StackPanel>
 
-                        <!-- Buttons -->
+                        <!-- Add/Remove Group Membership -->
                         <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="10,0,10,0">
-                            <Button x:Name="addGroupButton" 
-                            Content="Add →" 
+                            <Button x:Name="AddGroupButton"
+                            Content="Add →"
                             Width="100"
-                            Margin="0,10,0,0" 
+                            Margin="0,10,0,0"
                             Click="AddGroupButton_Click"/>
-                            <Button x:Name="removeGroupButton" 
-                            Content="← Remove" 
+                            <Button x:Name="RemoveGroupButton"
+                            Content="← Remove"
                             Width="100"
-                            Margin="0,10,0,0" 
+                            Margin="0,10,0,0"
                             Click="RemoveGroupButton_Click"/>
                         </StackPanel>
 
                         <!-- User's Groups -->
                         <StackPanel Grid.Column="2">
                             <Label Content="User's Groups:"/>
-                            <ListBox x:Name="userGroupsList"
+                            <ListBox x:Name="UserGroupsListBox"
                              Width="250"
-						     Height="250"
+                             Height="250"
+                             HorizontalAlignment="Left"
+                             SelectionMode="Extended"/>
+                        </StackPanel>
+
+                        <!-- Add/Remove Group Admin -->
+                        <StackPanel Grid.Column="3" VerticalAlignment="Center" Margin="10,0,10,0">
+                            <Button x:Name="AddGroupAdminButton"
+                            Content="Add →"
+                            Width="100"
+                            Margin="0,10,0,0"
+                            Click="AddGroupAdminButton_Click"/>
+                            <Button x:Name="RemoveGroupAdminButton"
+                            Content="← Remove"
+                            Width="100"
+                            Margin="0,10,0,0"
+                            Click="RemoveGroupAdminButton_Click"/>
+                        </StackPanel>
+
+                        <!-- Group Admin Groups -->
+                        <StackPanel Grid.Column="4">
+                            <Label Content="Group Admin:"/>
+                            <ListBox x:Name="GroupAdminListBox"
+                             Width="250"
+                             Height="250"
+                             HorizontalAlignment="Left"
                              SelectionMode="Extended"/>
                         </StackPanel>
                     </Grid>
@@ -236,59 +259,64 @@ permissions in the config file.</TextBlock>
                     <!-- IP Restrictions Section -->
                     <Label Content="IP Restrictions:" Margin="0,10,0,0"/>
                     <StackPanel Orientation="Horizontal">
-                        <ListBox x:Name="ipRestrictionsList"
-                        Width="250"
-			            MaxHeight="450"
-                        Margin="0,0,0,5">
-                            <ListBox.ItemTemplate>
-                                <DataTemplate>
-                                    <StackPanel Orientation="Horizontal">
-                                        <Label Content="{Binding Key}" Width="50" FontWeight="Bold"/>
-                                        <Label Content=": "/>
-                                        <Label Content="{Binding Value}"/>
-                                    </StackPanel>
-                                </DataTemplate>
-                            </ListBox.ItemTemplate>
-                        </ListBox>
+                        <DataGrid x:Name="IpRestrictionsDataGrid"
+                          Width="250"
+                          MaxHeight="450"
+                          Margin="0,0,0,5"
+                          AutoGenerateColumns="False"
+                          HeadersVisibility="Column"
+                          CanUserAddRows="False"
+                          CanUserDeleteRows="False"
+                          CanUserReorderColumns="False"
+                          CanUserResizeRows="False"
+                          SelectionMode="Single"
+                          SelectionUnit="FullRow"
+                          CellEditEnding="IpRestrictionsGrid_CellEditEnding"
+                          IsReadOnly="False">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="IP#" Binding="{Binding IpKey}" IsReadOnly="True" Width="60"/>
+                                <DataGridTextColumn Header="IP Address" Binding="{Binding IpValue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="*"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0 5">
-                        <Button x:Name="addIpButton" 
-                        Content="Add IP" 
-                        Width="75" 
+                        <Button x:Name="AddIpButton"
+                        Content="Add IP"
+                        Width="75"
                         Margin="0,0,0,0"
                         Click="AddIpButton_Click"/>
-                        <Button x:Name="removeIpButton"
+                        <Button x:Name="RemoveIpButton"
                         Content="Remove IP"
                         Width="75"
                         Margin="100,0,0,0"
                         Click="RemoveIpButton_Click"/>
                     </StackPanel>
-                    <TextBlock x:Name="noRestrictionsText"
-                        Text="No IP restrictions configured"
-                        FontStyle="Italic"
-                        Visibility="Collapsed"/>
+                    <TextBlock x:Name="NoRestrictionsTextBlock"
+                       Text="No IP restrictions configured"
+                       FontStyle="Italic"
+                       Visibility="Collapsed"/>
                 </StackPanel>
 
                 <!-- User Action Buttons at Bottom -->
                 <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,0">
-                    <Button x:Name="UserPurge" 
-                    Content="Purge User" 
-                    Width="110" 
+                    <Button x:Name="UserPurgeButton"
+                    Content="Purge User"
+                    Width="110"
                     Height="35"
                     Margin="0,0,0,0"
                     Visibility="Collapsed"
                     Background="Red"
                     Click="UserPurge_Click"/>
-                    <Button x:Name="UserRemove" 
-                    Content="Remove User" 
-                    Width="110" 
+                    <Button x:Name="UserRemoveButton"
+                    Content="Remove User"
+                    Width="110"
                     Height="35"
                     Margin="10,0,0,0"
                     Background="Red"
                     Click="UserRemove_Click"/>
-                    <Button x:Name="UserReAdd" 
-                    Content="ReAdd User" 
-                    Width="110" 
+                    <Button x:Name="UserReAddButton"
+                    Content="ReAdd User"
+                    Width="110"
                     Height="35"
                     Margin="10,0,0,0"
                     Visibility="Collapsed"

@@ -2,6 +2,7 @@
 using glFTPd_Commander.FTP;
 using glFTPd_Commander.Models;
 using glFTPd_Commander.Services;
+using glFTPd_Commander.Utils;
 using glFTPd_Commander.Windows;
 using System.Windows;
 using System.Windows.Input;
@@ -12,11 +13,11 @@ namespace glFTPd_Commander.Windows
     public partial class SetMaxAllotWindow : BaseWindow
     {
         private readonly GlFtpdClient _ftp;
-        private FtpClient? _ftpClient;
+        private readonly FtpClient? _ftpClient;
         private readonly string _group;
 
-        public string Amount => amountText.Text.Trim();
-        public string? Unit => (unitsComboBox.SelectedItem as UnitItem)?.Code;
+        public string Amount => AmountTextBox.Text.Trim();
+        public string? Unit => (UnitsComboBox.SelectedItem as UnitItem)?.Code;
 
         public SetMaxAllotWindow(GlFtpdClient ftp, FtpClient ftpClient, string group)
         {
@@ -25,40 +26,57 @@ namespace glFTPd_Commander.Windows
             _ftpClient = ftpClient;
             _group = group;
 
-            unitsComboBox.ItemsSource = UnitProvider.SizeUnits;
-            unitsComboBox.SelectedIndex = 1; // Default to GiB
-            Loaded += (s, e) => amountText.Focus();
+            UnitsComboBox.ItemsSource = UnitProvider.SizeUnits;
+            UnitsComboBox.SelectedIndex = 1; // Default to GiB
+            Loaded += (s, e) => AmountTextBox.Focus();
         }
 
-        private async void OkButton_Click(object sender, RoutedEventArgs e)
+        public static async Task<bool> ShowAndSetMaxAllot(Window owner, GlFtpdClient ftp, FtpClient? ftpClient, string group)
         {
-            if (string.IsNullOrWhiteSpace(Amount) || Unit == null)
+            var win = new SetMaxAllotWindow(ftp, ftpClient!, group)
             {
-                MessageBox.Show("Please fill in all fields.", "Missing Input", MessageBoxButton.OK, MessageBoxImage.Warning);
+                Owner = owner,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner
+            };
+        
+            if (win.ShowDialog() == true)
+            {
+                string amount = win.Amount;
+                string? unit = win.Unit;
+                if (string.IsNullOrWhiteSpace(amount) || string.IsNullOrWhiteSpace(unit))
+                    return false;
+        
+                string command = $"SITE GRPCHANGE {group} max_allot_size {amount}{unit}";
+                await ftp.ConnectionLock.WaitAsync();
+                try
+                {
+                    var (result, updatedClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync(command, ftpClient, ftp);
+                    if (result.Contains("Error", System.StringComparison.OrdinalIgnoreCase))
+                    {
+                        MessageBox.Show($"Failed to set max allot size: {result}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                        return false;
+                    }
+                    return true;
+                }
+                finally
+                {
+                    ftp.ConnectionLock.Release();
+                }
+            }
+            return false;
+        }
+
+        private void OkButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (InputUtils.ValidateAndWarn(string.IsNullOrWhiteSpace(Amount), "Please enter an amount.", AmountTextBox)) return;
+            // Optionally check for unit
+            if (string.IsNullOrWhiteSpace(Unit))
+            {
+                MessageBox.Show("Please select a unit.", "Missing Unit", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
-
-            string command = $"SITE GRPCHANGE {_group} max_allot_size {Amount}{Unit}";
-
-            await _ftp.ConnectionLock.WaitAsync();
-            try
-            {
-                var (result, updatedClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync(command, _ftpClient, _ftp);
-                _ftpClient = updatedClient;
-                if (result.Contains("Error", System.StringComparison.OrdinalIgnoreCase))
-                {
-                    MessageBox.Show($"Failed to set max allot size: {result}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                }
-                else
-                {
-                    DialogResult = true;
-                    Close();
-                }
-            }
-            finally
-            {
-                _ftp.ConnectionLock.Release();
-            }
+            DialogResult = true;
+            Close();
         }
 
         private void CancelButton_Click(object sender, RoutedEventArgs e)

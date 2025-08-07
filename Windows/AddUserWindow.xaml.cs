@@ -1,7 +1,8 @@
 ﻿using FluentFTP;
 using glFTPd_Commander.FTP;
 using glFTPd_Commander.Services;
-using System;
+using glFTPd_Commander.Utils;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
@@ -14,12 +15,12 @@ namespace glFTPd_Commander.Windows
         private readonly GlFtpdClient _ftp;
         private FtpClient? _ftpClient;
 
-        public string Username => txtNewUsername.Text.Trim();
-        public string Password => txtNewPassword.Visibility == Visibility.Visible
-            ? txtNewPassword.Password
-            : txtPasswordVisible.Text;
-        public string SelectedGroup => cmbGroups.SelectedItem?.ToString() ?? string.Empty;
-        public string IPAddress => txtIP.Text.Trim();
+        public string Username => UsernameTextBox.Text.Trim();
+        public string Password => PasswordBox.Visibility == Visibility.Visible
+            ? PasswordBox.Password
+            : PasswordVisibleTextBox.Text;
+        public string SelectedGroup => GroupsComboBox.SelectedItem?.ToString() ?? string.Empty;
+        public string IpAddress => IpTextBox.Text.Trim();
 
         public bool AddSuccessful { get; private set; } = false;
 
@@ -29,18 +30,18 @@ namespace glFTPd_Commander.Windows
             _ftp = ftp;
             _ftpClient = ftpClient;
 
-            this.Loaded += async (s, e) =>
+            Loaded += async (s, e) =>
             {
-                txtNewUsername.Focus();
+                UsernameTextBox.Focus();
                 await LoadGroupsAsync();
             };
-            txtNewPassword.GotFocus += (s, e) => RevealPassword(true);
-            txtPasswordVisible.LostFocus += (s, e) => RevealPassword(false);
+            PasswordBox.GotFocus += (s, e) => RevealPassword(true);
+            PasswordVisibleTextBox.LostFocus += (s, e) => RevealPassword(false);
         }
 
         private async Task LoadGroupsAsync()
         {
-            cmbGroups.ItemsSource = null;
+            GroupsComboBox.ItemsSource = null;
             await _ftp.ConnectionLock.WaitAsync();
             try
             {
@@ -55,7 +56,7 @@ namespace glFTPd_Commander.Windows
                     Close();
                     return;
                 }
-                cmbGroups.ItemsSource = groups?.OrderBy(g => g.Group).Select(g => g.Group).ToList() ?? Enumerable.Empty<string>();
+                GroupsComboBox.ItemsSource = groups?.OrderBy(g => g.Group).Select(g => g.Group).ToList() ?? Enumerable.Empty<string>();
             }
             finally
             {
@@ -64,78 +65,72 @@ namespace glFTPd_Commander.Windows
         }
 
         private void InputField_TextChanged(object sender, TextChangedEventArgs e) => UpdateAddButtonState();
-        private void CmbGroups_SelectionChanged(object sender, SelectionChangedEventArgs e) => UpdateAddButtonState();
+        private void GroupsComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e) => UpdateAddButtonState();
 
         private void UpdateAddButtonState()
         {
-            btnAdd.IsEnabled = !string.IsNullOrWhiteSpace(Username)
+            AddButton.IsEnabled = !string.IsNullOrWhiteSpace(Username)
                                && !string.IsNullOrWhiteSpace(Password)
-                               && cmbGroups.SelectedItem != null
-                               && !string.IsNullOrWhiteSpace(IPAddress);
+                               && GroupsComboBox.SelectedItem != null
+                               && !string.IsNullOrWhiteSpace(IpAddress);
         }
 
         private void RevealPassword(bool show)
         {
             if (show)
             {
-                txtPasswordVisible.Text = txtNewPassword.Password;
-                txtPasswordVisible.Visibility = Visibility.Visible;
-                txtNewPassword.Visibility = Visibility.Collapsed;
-                txtPasswordVisible.Focus();
-                txtPasswordVisible.SelectAll();
+                PasswordVisibleTextBox.Text = PasswordBox.Password;
+                PasswordVisibleTextBox.Visibility = Visibility.Visible;
+                PasswordBox.Visibility = Visibility.Collapsed;
+                PasswordVisibleTextBox.Focus();
+                PasswordVisibleTextBox.SelectAll();
             }
             else
             {
-                txtNewPassword.Password = txtPasswordVisible.Text;
-                txtNewPassword.Visibility = Visibility.Visible;
-                txtPasswordVisible.Visibility = Visibility.Collapsed;
+                PasswordBox.Password = PasswordVisibleTextBox.Text;
+                PasswordBox.Visibility = Visibility.Visible;
+                PasswordVisibleTextBox.Visibility = Visibility.Collapsed;
             }
         }
 
-        private async void BtnAdd_Click(object sender, RoutedEventArgs e)
+        private async void AddButton_Click(object sender, RoutedEventArgs e)
         {
-            if (string.IsNullOrWhiteSpace(Username))
+            if (InputUtils.ValidateAndWarn(string.IsNullOrWhiteSpace(Username), "Please enter a username.", UsernameTextBox)) return;
+            if (InputUtils.ValidateAndWarn(string.IsNullOrWhiteSpace(Password), "Please enter a password.", PasswordBox)) return;
+            if (InputUtils.ValidateAndWarn(GroupsComboBox.SelectedItem == null || string.IsNullOrWhiteSpace(SelectedGroup), "Please select a group.", GroupsComboBox)) return;
+            if (InputUtils.ValidateAndWarn(string.IsNullOrWhiteSpace(IpAddress), "Please enter an IP address.", IpTextBox)) return;
+            if (InputUtils.ValidateAndWarn(!InputUtils.IsValidGlftpdIp(IpAddress),
+                "Invalid IP restriction format. Examples:\n*@127.0.0.1\n*@127.0.0.*\n*@2001:db8::*\nident@127.0.0.1\nident@2001:db8::1\n*@*", IpTextBox)) return;
+
+            // --- Duplicate check ---
+            if (await ExistenceChecks.UsernameExistsAsync(_ftp, _ftpClient, Username))
             {
-                MessageBox.Show("Please enter a username.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
-                txtNewUsername.Focus();
-                return;
-            }
-            if (string.IsNullOrWhiteSpace(Password))
-            {
-                MessageBox.Show("Please enter a password.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
-                txtNewPassword.Focus();
-                return;
-            }
-            if (cmbGroups.SelectedItem == null || string.IsNullOrWhiteSpace(SelectedGroup))
-            {
-                MessageBox.Show("Please select a group.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
-                cmbGroups.Focus();
-                return;
-            }
-            if (string.IsNullOrWhiteSpace(IPAddress))
-            {
-                MessageBox.Show("Please enter an IP address.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
-                txtIP.Focus();
+                MessageBox.Show("A user with this name already exists. Please choose another username.",
+                                "Duplicate Username", MessageBoxButton.OK, MessageBoxImage.Warning);
+                UsernameTextBox.Focus();
+                UsernameTextBox.SelectAll();
+                Debug.WriteLine($"[AddUserWindow] Prevented adding existing username '{Username}'");
+                AddButton.IsEnabled = true;
                 return;
             }
 
-            btnAdd.IsEnabled = false;
+            AddButton.IsEnabled = false;
 
             await _ftp.ConnectionLock.WaitAsync();
             try
             {
-                var command = $"SITE GADDUSER {SelectedGroup} {Username} {Password} {IPAddress}";
+                var command = $"SITE GADDUSER {SelectedGroup} {Username} {Password} {IpAddress}";
                 var (result, updatedClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync(command, _ftpClient, _ftp);
-                
-                _ftpClient = updatedClient; // Always update the field!
+
+                _ftpClient = updatedClient;
 
                 if (_ftpClient == null)
                 {
                     MessageBox.Show("Lost connection to the FTP server.", "Connection Lost", MessageBoxButton.OK, MessageBoxImage.Error);
-                    btnAdd.IsEnabled = true;
+                    AddButton.IsEnabled = true;
                     return;
                 }
-                if (!string.IsNullOrEmpty(result) && !result.StartsWith("Error", StringComparison.OrdinalIgnoreCase))
+                if (!string.IsNullOrEmpty(result) && !result.StartsWith("Error", System.StringComparison.OrdinalIgnoreCase))
                 {
                     AddSuccessful = true;
                     DialogResult = true;
@@ -144,7 +139,7 @@ namespace glFTPd_Commander.Windows
                 else
                 {
                     MessageBox.Show(result ?? "Unknown error", "Failed to Add User", MessageBoxButton.OK, MessageBoxImage.Error);
-                    btnAdd.IsEnabled = true;
+                    AddButton.IsEnabled = true;
                 }
             }
             finally
@@ -153,7 +148,7 @@ namespace glFTPd_Commander.Windows
             }
         }
 
-        private void BtnCancel_Click(object sender, RoutedEventArgs e)
+        private void CancelButton_Click(object sender, RoutedEventArgs e)
         {
             DialogResult = false;
             Close();

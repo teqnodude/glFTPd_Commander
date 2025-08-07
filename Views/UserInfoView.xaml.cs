@@ -1,6 +1,8 @@
 ﻿using FluentFTP;
 using glFTPd_Commander.FTP;
+using glFTPd_Commander.Models;
 using glFTPd_Commander.Services;
+using glFTPd_Commander.Utils;
 using glFTPd_Commander.Windows;
 using System.Net;
 using System.Text.RegularExpressions;
@@ -36,7 +38,7 @@ namespace glFTPd_Commander.Views
             _username = username;
             _currentUser = currentUser;
             Loaded += UserInfoView_Loaded;
-            Loaded += (s, e) => usernameText.Focus();
+            Loaded += (s, e) => UsernameTextBox.Focus();
         }
 
         private async void UserInfoView_Loaded(object sender, RoutedEventArgs e) => await LoadUserDetails();
@@ -60,29 +62,37 @@ namespace glFTPd_Commander.Views
                     return;
                 }
 
-                usernameText.Text = userDetails.Username;
-                flagsText.Text = userDetails.Flags ?? string.Empty;
+                UsernameTextBox.Text = userDetails.Username;
+                FlagsTextBox.Text = userDetails.Flags ?? string.Empty;
 
                 if ((userDetails.Flags ?? "").Contains('6'))
                 {
-                    UserPurge.Visibility = Visibility.Visible;
-                    UserReAdd.Visibility = Visibility.Visible;
-                    UserRemove.Visibility = Visibility.Collapsed;
+                    UserPurgeButton.Visibility = Visibility.Visible;
+                    UserReAddButton.Visibility = Visibility.Visible;
+                    UserRemoveButton.Visibility = Visibility.Collapsed;
                 }
                 else
                 {
-                    UserPurge.Visibility = Visibility.Collapsed;
-                    UserReAdd.Visibility = Visibility.Collapsed;
-                    UserRemove.Visibility = Visibility.Visible;
+                    UserPurgeButton.Visibility = Visibility.Collapsed;
+                    UserReAddButton.Visibility = Visibility.Collapsed;
+                    UserRemoveButton.Visibility = Visibility.Visible;
                 }
 
                 var restrictions = userDetails.IpRestrictions
                     .Where(ip => !string.IsNullOrWhiteSpace(ip.Value))
                     .OrderBy(ip => ip.Key)
+                    .Select(ip => {
+                        int slot = 1; // fallback value
+                        var keySpan = ip.Key.AsSpan();
+                        if (keySpan.StartsWith("IP".AsSpan()) && int.TryParse(keySpan[2..], out var zeroBased))
+                            slot = zeroBased + 1;
+                        return new IpRestriction(slot.ToString(), ip.Value);
+                    })
                     .ToList();
-                addIpButton.IsEnabled = restrictions.Count < 10;
-                ipRestrictionsList.ItemsSource = restrictions;
-                noRestrictionsText.Visibility = restrictions.Count > 0 ? Visibility.Collapsed : Visibility.Visible;
+
+                AddIpButton.IsEnabled = restrictions.Count < 10;
+                IpRestrictionsDataGrid.ItemsSource = restrictions;
+                NoRestrictionsTextBlock.Visibility = restrictions.Count > 0 ? Visibility.Collapsed : Visibility.Visible;
 
 
                 // Get all groups (with connection safety)
@@ -94,17 +104,24 @@ namespace glFTPd_Commander.Views
                 var userGroupsNormalized = new HashSet<string>(
                 userDetails.Groups.Select(g => g.TrimStart('*', '+')), StringComparer.OrdinalIgnoreCase);
 
-                availableGroupsList.ItemsSource = allGroups?
+                AvailableGroupsListBox.ItemsSource = allGroups?
                     .Where(g => !userGroupsNormalized.Contains(g.Group.TrimStart('*', '+')))
                     .Select(g => g.Group)
                     .OrderBy(g => g)
                     .ToList();
 
-                //userGroupsList.ItemsSource = userDetails.Groups.OrderBy(g => g.TrimStart('*', '+')).ToList();
-                userGroupsList.ItemsSource = userDetails.Groups
-                    .Select(g => g.StartsWith('*') ? string.Concat("+", g.AsSpan(1)) : g) // Replace * with +
-                    .OrderBy(g => g.TrimStart('+'))
+                UserGroupsListBox.ItemsSource = userDetails.Groups
+                    .Select(g => g.TrimStart('*'))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(g => g)
                     .ToList();
+
+                var adminGroupsUserIsIn = userDetails.Groups
+                    .Where(g => g.StartsWith('*'))
+                    .Select(g => g.TrimStart('*'))
+                    .OrderBy(g => g)
+                    .ToList();
+                GroupAdminListBox.ItemsSource = adminGroupsUserIsIn;
 
                 var (reply, updatedClient2) = await FtpBase.ExecuteFtpCommandWithReconnectAsync($"SITE USER {_username}", _ftpClient, _ftp!);
                 _ftpClient = updatedClient2;
@@ -120,11 +137,11 @@ namespace glFTPd_Commander.Views
         {
             foreach (var ctrl in new TextBox[]
             {
-                usernameText, userCommentText, addedByText, timeOnTodayText, flagsText, ratiosText,
-                creditsText, totalLoginsText, maxLoginsText, maxSimUploadsText, maxUploadSpeedText,
-                timesNukedText, weeklyAllotmentText, createdText, expiresText, lastSeenText,
-                idleTimeText, currentLoginsText, fromSameIpText, maxSimDownloadsText,
-                maxDownloadSpeedText, bytesNukedText, timeLimitText, timeframeText, taglineText
+                UsernameTextBox, UserCommentTextBox, AddedByTextBox, TimeOnTodayTextBox, FlagsTextBox, RatiosTextBox,
+                CreditsTextBox, TotalLoginsTextBox, MaxLoginsTextBox, MaxSimUploadsTextBox, MaxUploadSpeedTextBox,
+                TimesNukedTextBox, WeeklyAllotmentTextBox, CreatedTextBox, ExpiresTextBox, LastSeenTextBox,
+                IdleTimeTextBox, CurrentLoginsTextBox, FromSameIpTextBox, MaxSimDownloadsTextBox,
+                MaxDownloadSpeedTextBox, BytesNukedTextBox, TimeLimitTextBox, TimeframeTextBox, TaglineTextBox
             }) ctrl.Text = string.Empty;
 
             _oldFlags = _oldRatios = _oldExpires = _oldIdleTime = _oldMaxLogins =
@@ -133,10 +150,10 @@ namespace glFTPd_Commander.Views
             string.Empty;
 
 
-            availableGroupsList.ItemsSource = null;
-            userGroupsList.ItemsSource = null;
-            ipRestrictionsList.ItemsSource = null;
-            noRestrictionsText.Visibility = Visibility.Visible;
+            AvailableGroupsListBox.ItemsSource = null;
+            UserGroupsListBox.ItemsSource = null;
+            IpRestrictionsDataGrid.ItemsSource = null;
+            NoRestrictionsTextBlock.Visibility = Visibility.Visible;
         }
 
         private void ParseDetailedUserInfo(string response)
@@ -145,26 +162,26 @@ namespace glFTPd_Commander.Views
 
             var fieldMap = new Dictionary<string, (TextBox, Action<string>)>(StringComparer.OrdinalIgnoreCase)
             {
-                ["Username"] = (usernameText, _ => { }),
-                ["User Comment"] = (userCommentText, v => _oldUserComment = v),
-                ["Added by"] = (addedByText, _ => { }),
-                ["Created"] = (createdText, val =>
+                ["Username"] = (UsernameTextBox, _ => { }),
+                ["User Comment"] = (UserCommentTextBox, v => _oldUserComment = v),
+                ["Added by"] = (AddedByTextBox, _ => { }),
+                ["Created"] = (CreatedTextBox, val =>
                 {
                     if (val == "0")
                     {
-                        createdText.Text = "0";
+                        CreatedTextBox.Text = "0";
                     }
                     else if (DateTime.TryParseExact(val, "MM-dd-yy", null, System.Globalization.DateTimeStyles.None, out var dt))
                     {
-                        createdText.Text = dt.ToString("yyyy-MM-dd");
+                        CreatedTextBox.Text = dt.ToString("yyyy-MM-dd");
                     }
                     else
                     {
-                        createdText.Text = val; // fallback
+                        CreatedTextBox.Text = val; // fallback
                     }
                 }),
-                ["Expires"] = (expiresText, v => _oldExpires = v),
-                ["Time On Today"] = (timeOnTodayText, val =>
+                ["Expires"] = (ExpiresTextBox, v => _oldExpires = v),
+                ["Time On Today"] = (TimeOnTodayTextBox, val =>
                 {
                     string result = val;
                 
@@ -179,41 +196,41 @@ namespace glFTPd_Commander.Views
                         result = $"{time.Minutes}m {time.Seconds:D2}s";
                     }
                 
-                    timeOnTodayText.Text = result;
+                    TimeOnTodayTextBox.Text = result;
                 }),
-                ["Last seen"] = (lastSeenText, val =>
+                ["Last seen"] = (LastSeenTextBox, val =>
                 {
                     if (val.Equals("Never", StringComparison.OrdinalIgnoreCase))
                     {
-                        lastSeenText.Text = "Never";
+                        LastSeenTextBox.Text = "Never";
                     }
                     else if (DateTime.TryParseExact(val, "ddd MMM dd HH:mm:ss yyyy", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var dt))
                     {
-                        lastSeenText.Text = dt.ToString("yyyy-MM-dd HH:mm:ss");
+                        LastSeenTextBox.Text = dt.ToString("yyyy-MM-dd HH:mm:ss");
                     }
                     else
                     {
-                        lastSeenText.Text = val; // fallback
+                        LastSeenTextBox.Text = val; // fallback
                     }
                 }),
-                ["Flags"] = (flagsText, v => _oldFlags = v.Trim().ToUpper()),
-                ["Idle time"] = (idleTimeText, v => _oldIdleTime = v),
-                ["Ratios"] = (ratiosText, v => _oldRatios = ParseRatioValue(v)),
-                ["Credits"] = (creditsText, _ => { }),
-                ["Total Logins"] = (totalLoginsText, _ => { }),
-                ["Current Logins"] = (currentLoginsText, _ => { }),
-                ["Max Logins"] = (maxLoginsText, v => _oldMaxLogins = v),
-                ["From same IP"] = (fromSameIpText, v => _oldFromSameIp = v),
-                ["Max Sim Uploads"] = (maxSimUploadsText, v => _oldMaxSimUploads = v),
-                ["Max Sim Downloads"] = (maxSimDownloadsText, v => _oldMaxSimDownloads = v),
-                ["Max Upload Speed"] = (maxUploadSpeedText, v => { }),
-                ["Max Download Speed"] = (maxDownloadSpeedText, v => { }),
-                ["Times Nuked"] = (timesNukedText, _ => { }),
-                ["Bytes Nuked"] = (bytesNukedText, v => { }),
-                ["Weekly Allotment"] = (weeklyAllotmentText, v => { }),
-                ["Time Limit"] = (timeLimitText, v => _oldTimeLimit = v),
-                ["Timeframe"] = (timeframeText, v => _oldTimeframe = v),
-                ["Tagline"] = (taglineText, v => _oldTagline = v)
+                ["Flags"] = (FlagsTextBox, v => _oldFlags = v.Trim().ToUpper()),
+                ["Idle time"] = (IdleTimeTextBox, v => _oldIdleTime = v),
+                ["Ratios"] = (RatiosTextBox, v => _oldRatios = ParseRatioValue(v)),
+                ["Credits"] = (CreditsTextBox, _ => { }),
+                ["Total Logins"] = (TotalLoginsTextBox, _ => { }),
+                ["Current Logins"] = (CurrentLoginsTextBox, _ => { }),
+                ["Max Logins"] = (MaxLoginsTextBox, v => _oldMaxLogins = v),
+                ["From same IP"] = (FromSameIpTextBox, v => _oldFromSameIp = v),
+                ["Max Sim Uploads"] = (MaxSimUploadsTextBox, v => _oldMaxSimUploads = v),
+                ["Max Sim Downloads"] = (MaxSimDownloadsTextBox, v => _oldMaxSimDownloads = v),
+                ["Max Upload Speed"] = (MaxUploadSpeedTextBox, v => { }),
+                ["Max Download Speed"] = (MaxDownloadSpeedTextBox, v => { }),
+                ["Times Nuked"] = (TimesNukedTextBox, _ => { }),
+                ["Bytes Nuked"] = (BytesNukedTextBox, v => { }),
+                ["Weekly Allotment"] = (WeeklyAllotmentTextBox, v => { }),
+                ["Time Limit"] = (TimeLimitTextBox, v => _oldTimeLimit = v),
+                ["Timeframe"] = (TimeframeTextBox, v => _oldTimeframe = v),
+                ["Tagline"] = (TaglineTextBox, v => _oldTagline = v)
             };
 
             var lines = response.Split(LineCharDelimiters, StringSplitOptions.RemoveEmptyEntries)
@@ -224,7 +241,7 @@ namespace glFTPd_Commander.Views
                 if (line.StartsWith("| User Comment:"))
                 {
                     var comment = line[16..].Trim();
-                    userCommentText.Text = comment;
+                    UserCommentTextBox.Text = comment;
                     _oldUserComment = comment;
                     continue;
                 }
@@ -285,11 +302,11 @@ namespace glFTPd_Commander.Views
             // Extract specific wide-line fields that may not parse via default logic
             var wideFieldLookups = new (string Field, string Pattern, TextBox Target, Action<string>? Store)[]
             {
-                ("Max Upload Speed", @"Max Upload Speed:\s+([^\s~]+)", maxUploadSpeedText, null),
-                ("Max Download Speed", @"Max Download Speed:\s+([^\s~]+)", maxDownloadSpeedText, null),
-                ("Weekly Allotment", @"Weekly Allotment:\s+([^\s~]+)", weeklyAllotmentText, null),
-                ("Bytes Nuked", @"Bytes Nuked:\s+([^\s~]+)", bytesNukedText, null),
-                ("Time Limit", @"Time Limit:\s+([^\s~]+)", timeLimitText, v => _oldTimeLimit = v)
+                ("Max Upload Speed", @"Max Upload Speed:\s+([^\s~]+)", MaxUploadSpeedTextBox, null),
+                ("Max Download Speed", @"Max Download Speed:\s+([^\s~]+)", MaxDownloadSpeedTextBox, null),
+                ("Weekly Allotment", @"Weekly Allotment:\s+([^\s~]+)", WeeklyAllotmentTextBox, null),
+                ("Bytes Nuked", @"Bytes Nuked:\s+([^\s~]+)", BytesNukedTextBox, null),
+                ("Time Limit", @"Time Limit:\s+([^\s~]+)", TimeLimitTextBox, v => _oldTimeLimit = v)
             };
             
             foreach (var (field, pattern, target, store) in wideFieldLookups)
@@ -305,8 +322,6 @@ namespace glFTPd_Commander.Views
                     store?.Invoke(value);
                 }
             }
-
-
         }
 
         private static string ParseRatioValue(string val)
@@ -317,9 +332,42 @@ namespace glFTPd_Commander.Views
             return match.Success ? match.Groups[1].Value : int.TryParse(val, out _) ? val : "";
         }
 
+        private async Task ApplyUserChange(string command, string oldValue, Action<string> updateOld, TextBox control)
+        {
+            _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+            if (_ftpClient == null) return;
+        
+            await _ftp!.ConnectionLock.WaitAsync();
+            try
+            {
+                var (result, updatedClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync(command, _ftpClient, _ftp);
+                _ftpClient = updatedClient;
+                if (result.Contains("Error"))
+                {
+                    MessageBox.Show($"Error applying change: {result}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    control.Text = oldValue;
+                    return;
+                }
+        
+                updateOld(control.Text.Trim());
+                await LoadUserDetails();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Exception applying change: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                control.Text = oldValue;
+            }
+            finally { _ftp.ConnectionLock.Release(); }
+        }
+
         private async void FlagsTextBox_LostFocus(object sender, RoutedEventArgs e)
         {
-            string newFlags = flagsText.Text.Trim().ToUpper();
+            string newFlags = FlagsTextBox.Text.Trim().ToUpper();
+            if (InputUtils.ValidateAndWarn(string.IsNullOrWhiteSpace(newFlags), "Please enter flags.", FlagsTextBox))
+            {
+                FlagsTextBox.Text = _oldFlags;
+                return;
+            }
             if (_oldFlags == newFlags) return;
 
             bool siteOpRemoved = (_oldFlags?.Contains('1') == true) && !newFlags.Contains('1');
@@ -331,7 +379,7 @@ namespace glFTPd_Commander.Views
                     MessageBoxButton.OK,
                     MessageBoxImage.Warning);
 
-                flagsText.Text = _oldFlags;
+                FlagsTextBox.Text = _oldFlags;
                 return;
             }
             var added = newFlags.Except(_oldFlags ?? "");
@@ -366,7 +414,7 @@ namespace glFTPd_Commander.Views
             catch (Exception ex)
             {
                 MessageBox.Show($"Error updating flags: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                flagsText.Text = _oldFlags;
+                FlagsTextBox.Text = _oldFlags;
             }
             finally
             {
@@ -376,30 +424,18 @@ namespace glFTPd_Commander.Views
 
         private async void RatiosTextBox_LostFocus(object sender, RoutedEventArgs e)
         {
-            string newVal = ParseRatioValue(ratiosText.Text.Trim());
-            if (_oldRatios == newVal || string.IsNullOrEmpty(newVal)) return;
-
-            _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
-                if (_ftpClient == null) return;
-
-            await _ftp!.ConnectionLock.WaitAsync();
-            try
+            string newVal = ParseRatioValue(RatiosTextBox.Text.Trim());
+            if (InputUtils.ValidateAndWarn(
+                string.IsNullOrWhiteSpace(newVal) ||
+                !(newVal.Equals("Unlimited", StringComparison.OrdinalIgnoreCase) ||
+                  int.TryParse(newVal, out _)),
+                "Ratio must be an integer or 'Unlimited'.", RatiosTextBox))
             {
-                var (result, updatedClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync($"SITE CHANGE {_username} ratio {newVal}", _ftpClient, _ftp);
-                _ftpClient = updatedClient;
-                if (result.Contains("Error")) throw new Exception(result);
-                _oldRatios = newVal;
-                await LoadUserDetails();
+                RatiosTextBox.Text = _oldRatios;
+                return;
             }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Error updating ratio: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                ratiosText.Text = _oldRatios;
-            }
-            finally
-            {
-                _ftp.ConnectionLock.Release();
-            }
+            if (_oldRatios == newVal) return;
+            await ApplyUserChange($"SITE CHANGE {_username} ratio {newVal}", _oldRatios!, v => _oldRatios = v, RatiosTextBox);
         }
         
         private void ExpiresInput(object sender, TextCompositionEventArgs e)
@@ -409,282 +445,177 @@ namespace glFTPd_Commander.Views
         
         private async void ExpiresTextBox_LostFocus(object sender, RoutedEventArgs e)
         {
-            string newVal = expiresText.Text.Trim();
-            if (_oldExpires == newVal) return;
-            if (newVal.Equals("Never", StringComparison.OrdinalIgnoreCase)) newVal = "0";
-
-            if (!glFTPd_Commander.Utils.InputUtils.IsValidExpiresInput(newVal))
+            string newVal = ExpiresTextBox.Text.Trim();
+            string checkedVal = newVal.Equals("Never", StringComparison.OrdinalIgnoreCase) ? "0" : newVal;
+            if (InputUtils.ValidateAndWarn(!InputUtils.IsValidExpiresInput(checkedVal), "Expires must be 0 or in the format YYYY-MM-DD.", ExpiresTextBox))
             {
-                MessageBox.Show("Expires must be 0 or in the format YYYY-MM-DD.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
-                expiresText.Text = _oldExpires;
-                expiresText.Focus();
+                ExpiresTextBox.Text = _oldExpires;
                 return;
             }
-
-            _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
-                if (_ftpClient == null) return;
-
-            await _ftp!.ConnectionLock.WaitAsync();
-            try
-            {
-                var (result, updatedClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync($"SITE CHANGE {_username} expires {newVal}", _ftpClient, _ftp);
-                _ftpClient = updatedClient;
-                if (result.Contains("Error")) throw new Exception(result);
-                _oldExpires = newVal == "0" ? "Never" : newVal;
-                await LoadUserDetails();
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Error updating expires: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                expiresText.Text = _oldExpires;
-            }
-            finally
-            {
-                _ftp.ConnectionLock.Release();
-            }
+            if (_oldExpires == newVal) return;
+            await ApplyUserChange($"SITE CHANGE {_username} expires {checkedVal}", _oldExpires!, v => _oldExpires = v == "0" ? "Never" : v, ExpiresTextBox);
         }
         
         private async void IdleTimeTextBox_LostFocus(object sender, RoutedEventArgs e)
         {
-            string newVal = idleTimeText.Text.Trim();
-            if (_oldIdleTime == newVal || !int.TryParse(newVal, out int minutes)) return;
-
-            _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
-                if (_ftpClient == null) return;
-
-            await _ftp!.ConnectionLock.WaitAsync();
-            try
+            string newVal = IdleTimeTextBox.Text.Trim();
+            if (InputUtils.ValidateAndWarn(
+                string.IsNullOrWhiteSpace(newVal) ||
+                !(newVal.Equals("Unlimited", StringComparison.OrdinalIgnoreCase) ||
+                  (int.TryParse(newVal, out int minutes) && minutes >= -1)),
+                "Idle time must be -1 (disabled), any positive integer (in seconds), or 'Unlimited'.", IdleTimeTextBox))
             {
-                var (result, updatedClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync($"SITE CHANGE {_username} idle_time {minutes}", _ftpClient, _ftp);
-                _ftpClient = updatedClient;
-                if (result.Contains("Error")) throw new Exception(result);
-                _oldIdleTime = newVal;
-                await LoadUserDetails();
+                IdleTimeTextBox.Text = _oldIdleTime;
+                return;
             }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Error updating idle time: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                idleTimeText.Text = _oldIdleTime;
-            }
-            finally
-            {
-                _ftp.ConnectionLock.Release();
-            }
+            if (_oldIdleTime == newVal) return;
+            await ApplyUserChange($"SITE CHANGE {_username} idle_time {newVal}", _oldIdleTime!, v => _oldIdleTime = v, IdleTimeTextBox);
         }
 
         private async void UsernameTextBox_LostFocus(object sender, RoutedEventArgs e)
         {
-            string newName = usernameText.Text.Trim();
-            if (string.IsNullOrEmpty(newName) || newName.Equals(_username, StringComparison.OrdinalIgnoreCase))
+            string newVal = UsernameTextBox.Text.Trim();
+            if (InputUtils.ValidateAndWarn(string.IsNullOrWhiteSpace(newVal), "Please enter a username.", UsernameTextBox))
+            {
+                UsernameTextBox.Text = _username;
                 return;
-
-            
+            }
+            if (newVal.Equals(_username, StringComparison.OrdinalIgnoreCase)) return;
             if (_username.Equals(_currentUser, StringComparison.OrdinalIgnoreCase))
             {
-                MessageBox.Show("You cannot rename your own account while logged in.", "Security Restriction",
-                    MessageBoxButton.OK, MessageBoxImage.Warning);
-                usernameText.Text = _username;
+                MessageBox.Show("You cannot rename your own account while logged in.", "Security Restriction", MessageBoxButton.OK, MessageBoxImage.Warning);
+                UsernameTextBox.Text = _username;
                 return;
             }
-
-            _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
-                if (_ftpClient == null) return;
-
-            await _ftp!.ConnectionLock.WaitAsync();
-            try
-            {
-                var (result, updatedClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync($"SITE RENUSER {_username} {newName}", _ftpClient, _ftp);
-                _ftpClient = updatedClient;
-                if (result.Contains("Error")) throw new Exception(result);
-
-                _username = newName; // Update the local username after rename
-                GroupChanged?.Invoke();
-
-                await LoadUserDetails();
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Error renaming user: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                usernameText.Text = _username;
-            }
-            finally
-            {
-                _ftp.ConnectionLock.Release();
-            }
-        }
-
-        
-        private async void MaxLoginsText_LostFocus(object sender, RoutedEventArgs e)
-        {
-            string newVal = maxLoginsText.Text.Trim();
-            if (_oldMaxLogins == newVal || !int.TryParse(newVal, out _)) return;
-
-            _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
-                if (_ftpClient == null) return;
-
-            await _ftp!.ConnectionLock.WaitAsync();
-            try
-            {
-                var (result, updatedClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync($"SITE CHANGE {_username} max_logins {newVal}", _ftpClient, _ftp);
-                _ftpClient = updatedClient;
-                if (result.Contains("Error")) throw new Exception(result);
-                _oldMaxLogins = newVal;
-                await LoadUserDetails();
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Error updating max logins: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                maxLoginsText.Text = _oldMaxLogins;
-            }
-            finally
-            {
-                _ftp.ConnectionLock.Release();
-            }
-        }
-        
-        private async void FromSameIpText_LostFocus(object sender, RoutedEventArgs e)
-        {
-            string newVal = fromSameIpText.Text.Trim();
-            if (_oldFromSameIp == newVal || !int.TryParse(newVal, out _)) return;
-
-            _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
-                if (_ftpClient == null) return;
-
-            await _ftp!.ConnectionLock.WaitAsync();
-            try
-            {
-                var (result, updatedClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync($"SITE CHANGE {_username} same_ip {newVal}", _ftpClient, _ftp);
-                _ftpClient = updatedClient;
-                if (result.Contains("Error")) throw new Exception(result);
-                _oldFromSameIp = newVal;
-                await LoadUserDetails();
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Error updating same IP: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                fromSameIpText.Text = _oldFromSameIp;
-            }
-            finally 
-            { 
-                _ftp.ConnectionLock.Release(); 
-            }
-        }
-        
-        private async void TaglineText_LostFocus(object sender, RoutedEventArgs e)
-        {
-            string newVal = taglineText.Text.Trim();
-            if (_oldTagline == newVal) return;
-
-            _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
-                if (_ftpClient == null) return;
-
-            await _ftp!.ConnectionLock.WaitAsync();
-            try
-            {
-                var (result, updatedClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync($"SITE CHANGE {_username} tagline {newVal}", _ftpClient, _ftp);
-                _ftpClient = updatedClient;
-                if (result.Contains("Error")) throw new Exception(result);
-                _oldTagline = newVal;
-                await LoadUserDetails();
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Error updating tagline: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                taglineText.Text = _oldTagline;
-            }
-            finally
-            {
-                _ftp.ConnectionLock.Release();
-            }
-        }
-        
-        private async void UserCommentText_LostFocus(object sender, RoutedEventArgs e)
-        {
-            string newVal = userCommentText.Text.Trim();
-            if (_oldUserComment == newVal) return;
-
-            _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
-                if (_ftpClient == null) return;
-
-            await _ftp!.ConnectionLock.WaitAsync();
-            try
-            {
-                var (result, updatedClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync($"SITE CHANGE {_username} comment {newVal}", _ftpClient, _ftp);
-                _ftpClient = updatedClient;
-                if (result.Contains("Error")) throw new Exception(result);
-                _oldUserComment = newVal;
-                await LoadUserDetails();
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Error updating user comment: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                userCommentText.Text = _oldUserComment;
-            }
-            finally
-            {
-                _ftp.ConnectionLock.Release();
-            }
-        }
-        
-        private async void MaxSimUploadsText_LostFocus(object sender, RoutedEventArgs e)
-        {
-            string newVal = maxSimUploadsText.Text.Trim();
-            if (_oldMaxSimUploads == newVal || !int.TryParse(newVal, out _)) return;
-
-            _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
-                if (_ftpClient == null) return;
-
-            await _ftp!.ConnectionLock.WaitAsync();
-            try
-            {
-                var (result, updatedClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync($"SITE CHANGE {_username} max_sim_up {newVal}", _ftpClient, _ftp);
-                _ftpClient = updatedClient;
-                if (result.Contains("Error")) throw new Exception(result);
-                _oldMaxSimUploads = newVal;
-                await LoadUserDetails();
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Error updating max simultaneous uploads: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                maxSimUploadsText.Text = _oldMaxSimUploads;
-            }
-            finally 
-            { 
-                _ftp.ConnectionLock.Release(); 
-            }
-        }
-        
-        private async void MaxSimDownloadsText_LostFocus(object sender, RoutedEventArgs e)
-        {
-            string newVal = maxSimDownloadsText.Text.Trim();
-            if (_oldMaxSimDownloads == newVal || !int.TryParse(newVal, out _)) return;
             
-            _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
-                if (_ftpClient == null) return;
+            // Prevent renaming to an existing username
+            if (await ExistenceChecks.UsernameExistsAsync(_ftp!, _ftpClient, newVal))
+            {
+                MessageBox.Show("A user with this name already exists.", "Duplicate Username", 
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                UsernameTextBox.Text = _username;
+                UsernameTextBox.Focus();
+                UsernameTextBox.SelectAll();
+                Debug.WriteLine($"[UserInfoView] Prevented renaming '{_username}' to existing username '{newVal}'");
+                return;
+            }
+            
+            await ApplyUserChange($"SITE RENUSER {_username} {newVal}", _username, v => _username = v, UsernameTextBox);
 
-            await _ftp!.ConnectionLock.WaitAsync();
-            try
+        }
+        
+        private async void MaxLoginsTextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            string newVal = MaxLoginsTextBox.Text.Trim();
+            if (InputUtils.ValidateAndWarn(
+                string.IsNullOrWhiteSpace(newVal) ||
+                !(newVal.Equals("Unlimited", StringComparison.OrdinalIgnoreCase) ||
+                  (int.TryParse(newVal, out int val) && val >= 0)),
+                "Max Logins must be an integer not less than 0 (0 = Unlimited).", MaxLoginsTextBox))
             {
-                var (result, updatedClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync($"SITE CHANGE {_username} max_sim_dn {newVal}", _ftpClient, _ftp);
-                _ftpClient = updatedClient;
-                if (result.Contains("Error")) throw new Exception(result);
-                _oldMaxSimDownloads = newVal;
-                await LoadUserDetails();
+                MaxLoginsTextBox.Text = _oldMaxLogins;
+                return;
             }
-            catch (Exception ex)
+            if (_oldMaxLogins == newVal) return;
+            await ApplyUserChange($"SITE CHANGE {_username} max_logins {newVal}", _oldMaxLogins!, v => _oldMaxLogins = v, MaxLoginsTextBox);
+        }
+
+        private async void FromSameIpTextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            string newVal = FromSameIpTextBox.Text.Trim();
+            if (InputUtils.ValidateAndWarn(
+                string.IsNullOrWhiteSpace(newVal) ||
+                !(newVal.Equals("Unlimited", StringComparison.OrdinalIgnoreCase) ||
+                  (int.TryParse(newVal, out int val) && val >= 0)),
+                "From same IP must be 0 (unlimited), any positive integer, or 'Unlimited'.", FromSameIpTextBox))
             {
-                MessageBox.Show($"Error updating max simultaneous downloads: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                maxSimDownloadsText.Text = _oldMaxSimDownloads;
+                FromSameIpTextBox.Text = _oldFromSameIp;
+                return;
             }
-            finally 
-            { 
-                _ftp.ConnectionLock.Release(); 
+            if (_oldFromSameIp == newVal) return;
+            await ApplyUserChange($"SITE CHANGE {_username} num_logins {newVal}", _oldFromSameIp!, v => _oldFromSameIp = v, FromSameIpTextBox);
+        }
+        
+        private async void TaglineTextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            string newVal = TaglineTextBox.Text.Trim();
+            if (InputUtils.ValidateAndWarn(string.IsNullOrWhiteSpace(newVal), "Please enter a tagline.", TaglineTextBox))
+            {
+                TaglineTextBox.Text = _oldTagline;
+                return;
             }
+            if (_oldTagline == newVal) return;
+            await ApplyUserChange($"SITE CHANGE {_username} tagline {newVal}", _oldTagline!, v => _oldTagline = v, TaglineTextBox);
+        }
+        
+        private async void UserCommentTextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            string newVal = UserCommentTextBox.Text.Trim();
+            if (InputUtils.ValidateAndWarn(string.IsNullOrWhiteSpace(newVal), "Please enter a user comment.", UserCommentTextBox))
+            {
+                UserCommentTextBox.Text = _oldUserComment;
+                return;
+            }
+            if (_oldUserComment == newVal) return;
+            await ApplyUserChange($"SITE CHANGE {_username} comment {newVal}", _oldUserComment!, v => _oldUserComment = v, UserCommentTextBox);
+        }
+        
+        private async void MaxSimUploadsTextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            string newVal = MaxSimUploadsTextBox.Text.Trim();
+            if (InputUtils.ValidateAndWarn(
+                string.IsNullOrWhiteSpace(newVal) ||
+                !(newVal.Equals("Unlimited", StringComparison.OrdinalIgnoreCase) ||
+                  (int.TryParse(newVal, out int val) && val >= -1 && val <= 30000)),
+                "Max simultaneous uploads must be between -1 and 30000 (-1 = Unlimited, or 'Unlimited').", MaxSimUploadsTextBox))
+            {
+                MaxSimUploadsTextBox.Text = _oldMaxSimUploads;
+                return;
+            }
+            if (_oldMaxSimUploads == newVal) return;
+            await ApplyUserChange($"SITE CHANGE {_username} max_sim_up {newVal}", _oldMaxSimUploads!, v => _oldMaxSimUploads = v, MaxSimUploadsTextBox);
+        }
+        
+        private async void MaxSimDownloadsTextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            string newVal = MaxSimDownloadsTextBox.Text.Trim();
+            if (InputUtils.ValidateAndWarn(
+                string.IsNullOrWhiteSpace(newVal) ||
+                !(newVal.Equals("Unlimited", StringComparison.OrdinalIgnoreCase) ||
+                  (int.TryParse(newVal, out int val) && val >= -1 && val <= 30000)),
+                "Max simultaneous downloads must be between -1 and 30000 (-1 = Unlimited, or 'Unlimited').", MaxSimDownloadsTextBox))
+            {
+                MaxSimDownloadsTextBox.Text = _oldMaxSimDownloads;
+                return;
+            }
+            if (_oldMaxSimDownloads == newVal) return;
+            await ApplyUserChange($"SITE CHANGE {_username} max_sim_dn {newVal}", _oldMaxSimDownloads!, v => _oldMaxSimDownloads = v, MaxSimDownloadsTextBox);
+        }
+
+        private async void TimeLimitTextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            string newVal = TimeLimitTextBox.Text.Trim();
+            if (InputUtils.ValidateAndWarn(
+                    !int.TryParse(newVal, out int val) || val < 0,
+                    "Time limit must be 0 (unlimited) or any positive integer (in minutes).", TimeLimitTextBox))
+            {
+                TimeLimitTextBox.Text = _oldTimeLimit;
+                return;
+            }
+            if (_oldTimeLimit == newVal) return;
+            await ApplyUserChange($"SITE CHANGE {_username} time_limit {newVal}", _oldTimeLimit!, v => _oldTimeLimit = v, TimeLimitTextBox);
+        }
+        
+        private async void TimeframeTextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            string newVal = TimeframeTextBox.Text.Trim();
+            if (_oldTimeframe == newVal) return;
+            await ApplyUserChange($"SITE CHANGE {_username} timeframe {newVal}", _oldTimeframe!, v => _oldTimeframe = v, TimeframeTextBox);
         }
         
         private async void AddGroupButton_Click(object sender, RoutedEventArgs e)
         {
-            if (availableGroupsList.SelectedItems.Count > 0)
+            if (AvailableGroupsListBox.SelectedItems.Count > 0)
             {
                 _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
                 if (_ftpClient == null) return;
@@ -692,7 +623,7 @@ namespace glFTPd_Commander.Views
                 await _ftp!.ConnectionLock.WaitAsync();
                 try
                 {
-                    foreach (string group in availableGroupsList.SelectedItems)
+                    foreach (string group in AvailableGroupsListBox.SelectedItems)
                     {
                         try
                         {
@@ -722,7 +653,7 @@ namespace glFTPd_Commander.Views
 
         private async void RemoveGroupButton_Click(object sender, RoutedEventArgs e)
         {
-            if (userGroupsList.SelectedItems.Count == 0)
+            if (UserGroupsListBox.SelectedItems.Count == 0)
                 return;
         
             _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
@@ -731,7 +662,7 @@ namespace glFTPd_Commander.Views
             await _ftp!.ConnectionLock.WaitAsync();
             try
             {
-                foreach (string group in userGroupsList.SelectedItems)
+                foreach (string group in UserGroupsListBox.SelectedItems)
                 {
                     string groupName = group.TrimStart('+');
                     string? error = null;
@@ -778,13 +709,84 @@ namespace glFTPd_Commander.Views
             }
         }
 
+        private async void AddGroupAdminButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (UserGroupsListBox.SelectedItem is string group)
+            {
+                // Optionally: check if already admin, using groupAdminList.ItemsSource
+                if (GroupAdminListBox.ItemsSource is IEnumerable<string> admins && admins.Contains(group, StringComparer.OrdinalIgnoreCase))
+                    return;
 
+                _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+                if (_ftpClient == null) return;
+        
+                await _ftp!.ConnectionLock.WaitAsync();
+                try
+                {
+                    var command = $"SITE CHGADMIN {_username} {group}";
+                    Debug.WriteLine($"[UserInfoView] {command}");
+                    var (result, updatedClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync(command, _ftpClient, _ftp);
+                    _ftpClient = updatedClient;
+                    if (result.Contains("Error"))
+                    {
+                        MessageBox.Show($"Error adding group admin: {result}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                        return;
+                    }
+                }
+                finally
+                {
+                    _ftp.ConnectionLock.Release();
+                }
+                await LoadUserDetails();
+                GroupChanged?.Invoke();
+            }
+        }
+
+        private async void RemoveGroupAdminButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (GroupAdminListBox.SelectedItem is string group)
+            {
+                _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+                if (_ftpClient == null) return;
+        
+                await _ftp!.ConnectionLock.WaitAsync();
+                try
+                {
+                    var command = $"SITE CHGADMIN {_username} {group}";
+                    Debug.WriteLine($"[UserInfoView] {command}");
+                    var (result, updatedClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync(command, _ftpClient, _ftp);
+                    _ftpClient = updatedClient;
+                    if (result.Contains("Error"))
+                    {
+                        MessageBox.Show($"Error removing group admin: {result}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                        return;
+                    }
+                }
+                finally
+                {
+                    _ftp.ConnectionLock.Release();
+                }
+                await LoadUserDetails();
+                GroupChanged?.Invoke();
+            }
+        }
+
+        private async void AddIpButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (await AddIpWindow.ShowAndAddIp(Window.GetWindow(this), _ftp!, _ftpClient, _username))
+                await LoadUserDetails();
+        }
         
         private async void RemoveIpButton_Click(object sender, RoutedEventArgs e)
         {
-            if (ipRestrictionsList.SelectedItem is KeyValuePair<string, string> selectedIp)
+            if (IpRestrictionsDataGrid.SelectedItem is IpRestriction selectedIp)
             {
-                string ipAddress = selectedIp.Key.Replace("IP", "");
+                string ipAddress = selectedIp.IpValue.Trim();
+                if (string.IsNullOrWhiteSpace(ipAddress))
+                {
+                    MessageBox.Show("Invalid IP selected.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
 
                 _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
                     if (_ftpClient == null) return;
@@ -814,41 +816,75 @@ namespace glFTPd_Commander.Views
                 MessageBox.Show("Please select an IP restriction to remove.", "No IP Selected", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
-        
-        private async void AddIpButton_Click(object sender, RoutedEventArgs e)
+
+        private void IpRestrictionsGrid_CellEditEnding(object sender, DataGridCellEditEndingEventArgs e)
         {
-            _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
-                if (_ftpClient == null) return;
-
-            var addIpWindow = new AddIpWindow
+            if (e.EditAction != DataGridEditAction.Commit) return;
+            if (e.Row.Item is not IpRestriction row) return;
+        
+            // Capture the row/item for closure
+            var ipRestriction = row;
+        
+            // Defer the update to after the edit is committed
+            Dispatcher.BeginInvoke(new Action(async () =>
             {
-                Owner = Window.GetWindow(this),
-                WindowStartupLocation = WindowStartupLocation.CenterOwner
-            };
-
-            if (addIpWindow.ShowDialog() == true)
-            {
-                string ipAddress = addIpWindow.IPAddress;
+                string newIp = ipRestriction.IpValue?.Trim() ?? "";
+        
+                // Optionally get the old value, or use backup if you want.
+                // For this, you'll want to store the old value as a Tag, or you can compare with the server's value after reload.
+        
+                // Validate IP
+                if (!InputUtils.IsValidGlftpdIp(newIp)) {
+                    MessageBox.Show(
+                        "Invalid IP restriction format. Examples:\n*@127.0.0.1\n*@127.0.0.*\n*@2001:db8::*\nident@127.0.0.1\nident@2001:db8::1\n*@*",
+                        "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    await LoadUserDetails();
+                    return;
+                }
+        
+                // Proceed with the update as before
                 await _ftp!.ConnectionLock.WaitAsync();
                 try
                 {
-                    var (result, updatedClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync($"SITE ADDIP {_username} {ipAddress}", _ftpClient, _ftp);
-                    _ftpClient = updatedClient;
-                    if (result.Contains("Error"))
+                    var ipNumber = ipRestriction.IpKey.Replace("IP", "");
+        
+                    // Remove the old IP first (this step assumes you are using the same slot for replacement)
+                    var (delResult, delClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync(
+                        $"SITE DELIP {_username} {ipNumber}", _ftpClient, _ftp);
+                    _ftpClient = delClient;
+        
+                    if (delResult.Contains("Error", StringComparison.OrdinalIgnoreCase))
                     {
-                        MessageBox.Show(result, "Error Adding IP", MessageBoxButton.OK, MessageBoxImage.Error);
-                    }
-                    else
-                    {
-                        //MessageBox.Show("IP restriction added successfully", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+                        MessageBox.Show($"Failed to remove old IP: {delResult}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                         await LoadUserDetails();
+                        return;
                     }
+        
+                    var (addResult, addClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync(
+                        $"SITE ADDIP {_username} {newIp}", _ftpClient, _ftp);
+                    _ftpClient = addClient;
+        
+                    if (InputUtils.IsGlftpdIpAddError(addResult))
+                    {
+                        MessageBox.Show(addResult, "IP Add Failed", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        await LoadUserDetails();
+                        return;
+                    }
+                    else if (addResult.Contains("Error", StringComparison.OrdinalIgnoreCase))
+                    {
+                        MessageBox.Show($"Failed to add new IP: {addResult}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                        await LoadUserDetails();
+                        return;
+                    }
+        
+                    Debug.WriteLine($"[UserInfoView] Changed IP restriction {ipNumber} to {newIp} for user {_username}");
+                    await LoadUserDetails();
                 }
                 finally
                 {
                     _ftp.ConnectionLock.Release();
                 }
-            }
+            }), System.Windows.Threading.DispatcherPriority.Background);
         }
         
         private async void AddCreditsButton_Click(object sender, RoutedEventArgs e)
@@ -865,7 +901,6 @@ namespace glFTPd_Commander.Views
             if (window.ShowDialog() == true)
                 await LoadUserDetails();
         }
-
         
         private async void TakeCreditsButton_Click(object sender, RoutedEventArgs e)
         {
@@ -881,7 +916,6 @@ namespace glFTPd_Commander.Views
             if (window.ShowDialog() == true)
                 await LoadUserDetails();
         }
-
 
         private async void UserReAdd_Click(object sender, RoutedEventArgs e)
         {
@@ -911,7 +945,7 @@ namespace glFTPd_Commander.Views
             _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
                 if (_ftpClient == null) return;
 
-            if ((flagsText.Text ?? "").Contains('1'))
+            if ((FlagsTextBox.Text ?? "").Contains('1'))
             {
                 MessageBox.Show(
                     $"You are trying to remove a SiteOP = (flag 1). Please remove the flag 1 manually from the shell from ftp-data/users/{_username}.",
@@ -966,66 +1000,6 @@ namespace glFTPd_Commander.Views
             }
         }
 
-        private async void TimeLimitText_LostFocus(object sender, RoutedEventArgs e)
-        {
-            string newVal = timeLimitText.Text.Trim();
-            if (_oldTimeLimit == newVal) return;
-        
-            _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
-                if (_ftpClient == null) return;
-        
-            await _ftp!.ConnectionLock.WaitAsync();
-            try
-            {
-                var (result, updatedClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync($"SITE CHANGE {_username} time_limit {newVal}", _ftpClient, _ftp);
-                _ftpClient = updatedClient;
-                if (result.Contains("Error"))
-                    throw new Exception(result);
-        
-                _oldTimeLimit = newVal;
-                await LoadUserDetails();
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Error updating time limit: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                timeLimitText.Text = _oldTimeLimit;
-            }
-            finally
-            {
-                _ftp.ConnectionLock.Release();
-            }
-        }
-        
-        private async void TimeframeText_LostFocus(object sender, RoutedEventArgs e)
-        {
-            string newVal = timeframeText.Text.Trim();
-            if (_oldTimeframe == newVal) return;
-        
-            _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
-                if (_ftpClient == null) return;
-        
-            await _ftp!.ConnectionLock.WaitAsync();
-            try
-            {
-                var (result, updatedClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync($"SITE CHANGE {_username} timeframe {newVal}", _ftpClient, _ftp);
-                _ftpClient = updatedClient;
-                if (result.Contains("Error"))
-                    throw new Exception(result);
-        
-                _oldTimeframe = newVal;
-                await LoadUserDetails();
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Error updating timeframe: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                timeframeText.Text = _oldTimeframe;
-            }
-            finally
-            {
-                _ftp.ConnectionLock.Release();
-            }
-        }
-
         private async void SetAllotmentButton_Click(object sender, RoutedEventArgs e)
         {
             _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
@@ -1045,38 +1019,16 @@ namespace glFTPd_Commander.Views
 
         private async void SetMaxUploadSpeed_Click(object sender, RoutedEventArgs e)
         {
-            _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
-                if (_ftpClient == null) return;
-
-            var win = new SetSpeedWindow(_ftp!, _ftpClient!, _username, "max_ulspeed")
-            {
-                Owner = Window.GetWindow(this),
-                WindowStartupLocation = WindowStartupLocation.CenterOwner
-            };
-        
-            if (win.ShowDialog() == true)
-            {
+            if (await SetSpeedWindow.ShowAndSetSpeed(Window.GetWindow(this), _ftp!, _ftpClient, _username, "max_ulspeed"))
                 await LoadUserDetails();
-            }
         }
-        
+
         private async void SetMaxDownloadSpeed_Click(object sender, RoutedEventArgs e)
         {
-            _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
-                if (_ftpClient == null) return;
-
-            var win = new SetSpeedWindow(_ftp!, _ftpClient!, _username, "max_dlspeed")
-            {
-                Owner = Window.GetWindow(this),
-                WindowStartupLocation = WindowStartupLocation.CenterOwner
-            };
-        
-            if (win.ShowDialog() == true)
-            {
+            if (await SetSpeedWindow.ShowAndSetSpeed(Window.GetWindow(this), _ftp!, _ftpClient, _username, "max_dlspeed"))
                 await LoadUserDetails();
-            }
         }
-
+        
         protected override void OnPreviewKeyDown(System.Windows.Input.KeyEventArgs e)
         {
             base.OnPreviewKeyDown(e);

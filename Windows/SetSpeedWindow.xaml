@@ -15,12 +15,12 @@
 
         <StackPanel Margin="0,0,0,10">
             <TextBlock Text="Speed:"/>
-            <TextBox x:Name="speedText" PreviewTextInput="SpeedInput"/>
+            <TextBox x:Name="SpeedTextBox" PreviewTextInput="SpeedInput"/>
         </StackPanel>
 
         <StackPanel Margin="0,0,0,10" Grid.Row="1">
             <TextBlock Text="Unit:"/>
-            <ComboBox x:Name="unitsComboBox" DisplayMemberPath="Display"/>
+            <ComboBox x:Name="UnitsComboBox" DisplayMemberPath="Display"/>
         </StackPanel>
 
         <StackPanel Orientation="Horizontal" Grid.Row="2" HorizontalAlignment="Right">

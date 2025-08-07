@@ -1,13 +1,9 @@
 using glFTPd_Commander.Utils;
 using glFTPd_Commander.Windows;
 using System.Diagnostics;
-using System.Net.Http;
 using System.Windows;
-using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Navigation;
-using static glFTPd_Commander.Utils.UpdateChecker;
-using Debug = System.Diagnostics.Debug;
 
 namespace glFTPd_Commander.Windows
 {
@@ -21,7 +17,7 @@ namespace glFTPd_Commander.Windows
             Loaded += AboutWindow_Loaded;
         }
 
-        private void Hyperlink_RequestNavigate(object sender, RequestNavigateEventArgs e)
+        private void ProjectUrlHyperlink_RequestNavigate(object sender, RequestNavigateEventArgs e)
         {
             Process.Start(new ProcessStartInfo(e.Uri.AbsoluteUri) { UseShellExecute = true });
             e.Handled = true;
@@ -29,31 +25,26 @@ namespace glFTPd_Commander.Windows
 
         private async void AboutWindow_Loaded(object sender, RoutedEventArgs e)
         {
-            UpdateButton.Visibility = Visibility.Collapsed; // Always start hidden
-        
-            UpdateStatusText.Visibility = Visibility.Visible;
-            UpdateStatusText.Text = "Checking for updates...";
-            UpdateStatusText.Foreground = new SolidColorBrush(Colors.Gray);
-        
+            UpdateButton.Visibility = Visibility.Collapsed;
+
+            UpdateStatusTextBlock.Visibility = Visibility.Visible;
+            UpdateStatusTextBlock.Text = "Checking for updates...";
+            UpdateStatusTextBlock.Foreground = new SolidColorBrush(Colors.Gray);
+
             var result = await UpdateChecker.CheckForUpdateSilently(showMessage: false);
-        
+
             switch (result)
             {
                 case UpdateChecker.UpdateCheckResult.UpToDate:
-                    UpdateStatusText.Text = "You're running the latest version.";
-                    UpdateStatusText.Foreground = new SolidColorBrush(Colors.Green);
+                    UpdateStatusTextBlock.Text = "You're running the latest version.";
+                    UpdateStatusTextBlock.Foreground = new SolidColorBrush(Colors.Green);
                     break;
-        
+
                 case UpdateChecker.UpdateCheckResult.UpdateAvailable:
-                    UpdateStatusText.Text = "A new version is available.";
-                    UpdateStatusText.Foreground = new SolidColorBrush(Colors.Red);
+                    UpdateStatusTextBlock.Text = "A new version is available.";
+                    UpdateStatusTextBlock.Foreground = new SolidColorBrush(Colors.Red);
                     var versionInfo = await UpdateChecker.GetLatestVersionInfo();
-                    // Defensive: handle both Url and url for dynamic results
-                    string? url = null;
-                    if (versionInfo != null)
-                    {
-                        url = versionInfo.Url ?? versionInfo.url;
-                    }
+                    string? url = versionInfo?.Url ?? versionInfo?.url;
 
                     if (!string.IsNullOrEmpty(url))
                     {
@@ -71,15 +62,15 @@ namespace glFTPd_Commander.Windows
                         });
                     }
                     break;
-        
+
                 case UpdateChecker.UpdateCheckResult.Error:
-                    UpdateStatusText.Text = "Could not check for updates.";
-                    UpdateStatusText.Foreground = new SolidColorBrush(Colors.Red);
+                    UpdateStatusTextBlock.Text = "Could not check for updates.";
+                    UpdateStatusTextBlock.Foreground = new SolidColorBrush(Colors.Red);
                     break;
-        
+
                 default:
-                    UpdateStatusText.Text = "Unknown update result.";
-                    UpdateStatusText.Foreground = new SolidColorBrush(Colors.Red);
+                    UpdateStatusTextBlock.Text = "Unknown update result.";
+                    UpdateStatusTextBlock.Foreground = new SolidColorBrush(Colors.Red);
                     break;
             }
         }
@@ -95,6 +86,5 @@ namespace glFTPd_Commander.Windows
                 MessageBox.Show("No update URL found.", "Update", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
-
     }
 }

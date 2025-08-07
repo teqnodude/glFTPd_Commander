@@ -32,18 +32,18 @@
 
         <!-- Connection Management -->
         <Label Content="Connections:" Width="300" Grid.Row="0"/>
-        <ComboBox x:Name="connectionComboBox" SelectionChanged="ConnectionComboBox_SelectionChanged" DisplayMemberPath="Name" Margin="0,0,0,10" Grid.Row="1"/>
+        <ComboBox x:Name="ConnectionsComboBox" SelectionChanged="ConnectionsComboBox_SelectionChanged" DisplayMemberPath="Name" Margin="0,0,0,10" Grid.Row="1"/>
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,10" Grid.Row="2">
-            <Button x:Name="btnAddConnection" Content="Add Connection" Margin="0,0,10,0" Click="AddConnection_Click"/>
-            <Button x:Name="btnRemoveConnection" Content="Remove" Click="RemoveConnection_Click"/>
+            <Button x:Name="AddConnectionButton" Content="Add Connection" Margin="0,0,10,0" Click="AddConnectionButton_Click"/>
+            <Button x:Name="RemoveConnectionButton" Content="Remove" Click="RemoveConnectionButton_Click"/>
         </StackPanel>
 
         <!-- Connection Details -->
         <Label Content="Connection Name:" Grid.Row="3" />
-        <TextBox x:Name="txtConnectionName" GotFocus="MoveCaretToEnd" TextChanged="InputField_TextChanged" Grid.Row="4" Margin="5"/>
+        <TextBox x:Name="ConnectionNameTextBox" GotFocus="MoveCaretToEnd" Grid.Row="4" Margin="5"/>
 
         <Label Content="Username:" Grid.Row="5"/>
-        <TextBox x:Name="txtUsername" GotFocus="MoveCaretToEnd" TextChanged="InputField_TextChanged" Margin="0,0,0,10" Grid.Row="6"/>
+        <TextBox x:Name="UsernameTextBox" GotFocus="MoveCaretToEnd" Margin="0,0,0,10" Grid.Row="6"/>
 
         <Label Content="Password:" Grid.Row="7"/>
         <Grid Grid.Row="8" Margin="0,0,0,10">
@@ -51,32 +51,33 @@
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
-            <PasswordBox x:Name="txtPassword" PasswordChanged="InputField_TextChanged" Grid.Column="0"/>
-            <TextBox x:Name="txtPasswordVisible" GotFocus="MoveCaretToEnd" TextChanged="InputField_TextChanged" Visibility="Collapsed" Grid.Column="0"/>
+            <PasswordBox x:Name="PasswordBox" Grid.Column="0"/>
+            <TextBox x:Name="PasswordVisibleTextBox" GotFocus="MoveCaretToEnd" Visibility="Collapsed" Grid.Column="0"/>
         </Grid>
 
         <Label Content="Server:" Grid.Row="9"/>
-        <TextBox x:Name="txtIP" PreviewTextInput="ServerInput" GotFocus="MoveCaretToEnd" TextChanged="InputField_TextChanged" Margin="0,0,0,10" Grid.Row="10"/>
+        <TextBox x:Name="ServerTextBox" PreviewTextInput="ServerInput" GotFocus="MoveCaretToEnd" Margin="0,0,0,10" Grid.Row="10"/>
 
         <Label Content="Port:" Grid.Row="11"/>
-        <TextBox x:Name="txtPort" PreviewTextInput="AmountInput" GotFocus="MoveCaretToEnd" TextChanged="InputField_TextChanged" Margin="0,0,0,10" Grid.Row="12"/>
+        <TextBox x:Name="PortTextBox" PreviewTextInput="AmountInput" GotFocus="MoveCaretToEnd" Margin="0,0,0,10" Grid.Row="12"/>
 
         <Label Content="SSL Mode:" Grid.Row="13"/>
-        <ComboBox x:Name="cmbSslMode" Grid.Row="14" SelectedIndex="0" Margin="0,0,0,10">
+        <ComboBox x:Name="SslModeComboBox" Grid.Row="14" SelectedIndex="0" Margin="0,0,0,10">
             <ComboBoxItem Content="Explicit (AUTH TLS)" Tag="Explicit"/>
             <ComboBoxItem Content="Implicit" Tag="Implicit"/>
         </ComboBox>
 
         <Label Content="Connection Type:" Grid.Row="15"/>
-        <ComboBox x:Name="cmbMode" Margin="0,0,0,10" Grid.Row="16">
+        <ComboBox x:Name="ConnectionTypeComboBox" Margin="0,0,0,10" Grid.Row="16">
             <ComboBoxItem Tag="PASV">Passive (PASV)</ComboBoxItem>
             <ComboBoxItem Tag="PORT">Active (PORT)</ComboBoxItem>
         </ComboBox>
 
         <!-- Buttons -->
         <StackPanel Grid.Row="17" Orientation="Horizontal" HorizontalAlignment="Right">
-            <Button x:Name="btnSave" Content="Save" Margin="0,0,10,0" IsDefault="True" Click="Save_Click" IsEnabled="False"/>
-            <Button x:Name="btnCancel" Content="Cancel" IsCancel="True" Click="Cancel_Click"/>
+            <Button x:Name="SaveButton" Content="Save" Margin="0,0,10,0" IsDefault="True" Click="SaveButton_Click"/>
+            <Button x:Name="CancelButton" Content="Cancel" IsCancel="True" Click="CancelButton_Click"/>
         </StackPanel>
+
     </Grid>
 </local:BaseWindow>
