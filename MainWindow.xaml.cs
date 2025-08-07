@@ -46,6 +46,9 @@ namespace glFTPd_Commander
         public ObservableCollection<CustomCommandSlot> CustomCommandSlots { get; } = [];
         public ICommand CustomCommandSlotClickCommand { get; }
         public ICommand RemoveCustomCommandCommand { get; }
+        private bool _isReconnecting = false;
+        private int _reconnectAttempts = 0;
+        private const int MaxReconnectAttempts = 5;
 
         public class FtpTreeItem : INotifyPropertyChanged
         {
@@ -266,7 +269,7 @@ namespace glFTPd_Commander
         {
             if (_isLoading) return;
             _isLoading = true;
-        
+       
             await (_ftp?.ConnectionLock?.WaitAsync() ?? Task.CompletedTask);
         
             try
@@ -275,6 +278,21 @@ namespace glFTPd_Commander
                 {
                     MessageBox.Show("FTP connection is not initialized.", "Error",
                         MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+
+                if (_ftpClient != null) {
+                    try { _ftpClient.Disconnect(); } catch { }
+                    try { _ftpClient.Dispose(); } catch { }
+                    _ftpClient = null;
+                }
+                
+                // Create ONE new connection for this batch
+                _ftpClient = await FtpBase.EnsureConnectedAsync(null, _ftp);
+                if (_ftpClient == null) {
+                    MessageBox.Show("Failed to connect to FTP server.", "Connection Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    _ftp?.ConnectionLock.Release();
+                    _isLoading = false;
                     return;
                 }
         
@@ -386,8 +404,36 @@ namespace glFTPd_Commander
             catch (Exception ex)
             {
                 Debug.WriteLine($"[MainWindow] Error in LoadFtpData: {ex}");
-                MessageBox.Show($"Error loading FTP data: {ex.Message}", "Error",
-                    MessageBoxButton.OK, MessageBoxImage.Error);
+            
+                // Try to reconnect if not already trying
+                if (!_isReconnecting && _ftp != null)
+                {
+                    _isReconnecting = true;
+                    bool success = await TryReconnectAsync();
+                    _isReconnecting = false;
+            
+                    if (success)
+                    {
+                        Debug.WriteLine("[MainWindow] Reconnected! Reloading TreeView...");
+                        await Dispatcher.InvokeAsync(() => LoadFtpData());
+                        return;
+                    }
+                    else
+                    {
+                        MessageBox.Show(
+                            "Connection lost and automatic reconnect failed.\n" +
+                            "Please check your network/server and click 'Reconnect' to try again.",
+                            "Connection Error",
+                            MessageBoxButton.OK, MessageBoxImage.Error
+                        );
+                        // Optionally disable the UI, or show a reconnect button.
+                    }
+                }
+                else
+                {
+                    MessageBox.Show($"Error loading FTP data: {ex.Message}", "Error",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                }
             }
             finally
             {
@@ -419,7 +465,20 @@ namespace glFTPd_Commander
                     else if (item.IsGroup)
                     {
                         var groupInfoView = new Views.GroupInfoView(_ftp!, _ftpClient!, item.Group!.Group, GetCurrentLoggedInUsername());
-                        groupInfoView.GroupChanged += () => LoadFtpData();
+                        groupInfoView.GroupChanged += () =>
+                        {
+                            if (_ftpClient != null)
+                            {
+                                try { _ftpClient.Disconnect(); } catch { }
+                                try { _ftpClient.Dispose(); } catch { }
+                                _ftpClient = null;
+                            }
+                            Dispatcher.InvokeAsync(async () =>
+                            {
+                                await Task.Delay(100); // 100ms is usually enough
+                                LoadFtpData();
+                            });
+                        };
                         groupInfoView.RequestClose += () =>
                         {
                             UserGroupInfoContent.Content = null;
@@ -839,6 +898,33 @@ namespace glFTPd_Commander
             {
                 MessageBox.Show($"Error: {ex.Message}", "Connection Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
+        }
+
+        private async Task<bool> TryReconnectAsync()
+        {
+            if (_ftp == null)
+                return false;
+
+            while (_reconnectAttempts < MaxReconnectAttempts)
+            {
+                _reconnectAttempts++;
+                try
+                {
+                    _ftpClient = await FtpBase.EnsureConnectedAsync(_ftpClient, _ftp);
+                    if (_ftpClient != null && _ftpClient.IsConnected)
+                    {
+                        Debug.WriteLine($"[Reconnect] Successful after {_reconnectAttempts} attempts");
+                        _reconnectAttempts = 0;
+                        return true;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[Reconnect] Attempt {_reconnectAttempts} failed: {ex.Message}");
+                }
+                await Task.Delay(2000 * _reconnectAttempts); // Exponential backoff: 2s, 4s, 6s, ...
+            }
+            return false;
         }
 
         public void ForceDisconnect(string reason)

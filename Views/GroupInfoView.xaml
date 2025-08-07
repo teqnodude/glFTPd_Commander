@@ -36,10 +36,10 @@
                     <TextBox x:Name="DescriptionTextBox" GotKeyboardFocus="SelectAllText" LostFocus="DescriptionTextBox_LostFocus" Margin="0,0,0,10"/>
 
                     <Label Content="Slots:"/>
-                    <TextBox x:Name="SlotsTextBox" PreviewTextInput="ValueInput" GotKeyboardFocus="SelectAllText" ToolTip="-1 = Unlimited" LostFocus="SlotsTextBox_LostFocus" Margin="0,0,0,10"/>
+                    <TextBox x:Name="SlotsTextBox" GotKeyboardFocus="SelectAllText" ToolTip="-1 = Unlimited" LostFocus="SlotsTextBox_LostFocus" Margin="0,0,0,10"/>
 
                     <Label Content="Leech:"/>
-                    <TextBox x:Name="LeechTextBox" PreviewTextInput="ValueInput" GotKeyboardFocus="SelectAllText" ToolTip="-1 = Unlimited, -2 = Disabled" LostFocus="LeechTextBox_LostFocus" Margin="0,0,0,10"/>
+                    <TextBox x:Name="LeechTextBox" GotKeyboardFocus="SelectAllText" ToolTip="-1 = Unlimited, -2 = Disabled" LostFocus="LeechTextBox_LostFocus" Margin="0,0,0,10"/>
 
 					<Button x:Name="GroupRemoveButton"
 								Content="Remove Group"
@@ -51,7 +51,7 @@
                 <!-- MIDDLE COLUMN -->
                 <StackPanel Grid.Column="1" Margin="0 0 10 0">
                     <Label Content="Allot:"/>
-                    <TextBox x:Name="AllotTextBox" PreviewTextInput="ValueInput" GotKeyboardFocus="SelectAllText" ToolTip="-1 = Unlimited, -2 = Disabled" LostFocus="AllotTextBox_LostFocus" Margin="0,0,0,10"/>
+                    <TextBox x:Name="AllotTextBox" GotKeyboardFocus="SelectAllText" ToolTip="-1 = Unlimited, -2 = Disabled" LostFocus="AllotTextBox_LostFocus" Margin="0,0,0,10"/>
 
                     <Label Content="Max Allot:"/>
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
@@ -60,7 +60,7 @@
                     </StackPanel>
 
                     <Label Content="Max Logins:"/>
-                    <TextBox x:Name="MaxLoginsTextBox" PreviewTextInput="ValueInput" GotKeyboardFocus="SelectAllText" ToolTip="0 = Unlimited" LostFocus="MaxLoginsTextBox_LostFocus" Margin="0,0,0,10"/>
+                    <TextBox x:Name="MaxLoginsTextBox" GotKeyboardFocus="SelectAllText" ToolTip="0 = Unlimited" LostFocus="MaxLoginsTextBox_LostFocus" Margin="0,0,0,10"/>
 
                     <Label Content="Comment:"/>
                     <TextBox x:Name="CommentTextBox" GotKeyboardFocus="SelectAllText" ToolTip="Max 63 symbols" LostFocus="CommentTextBox_LostFocus" Margin="0,0,0,10"/>

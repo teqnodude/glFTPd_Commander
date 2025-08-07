@@ -203,7 +203,7 @@ namespace glFTPd_Commander.Views
             if (InputUtils.ValidateAndWarn(
                     string.IsNullOrWhiteSpace(newVal) ||
                     (!(newVal.Equals("Unlimited", StringComparison.OrdinalIgnoreCase) || (int.TryParse(newVal, out int val) && val >= -1))),
-                    "Slots must be an integer not less than -1 (-1 = Unlimited).", SlotsTextBox))
+                    "Slots must be an integer not less than -1, -1 = Unlimited.", SlotsTextBox))
             {
                 SlotsTextBox.Text = _oldSlots;
                 return;
@@ -219,7 +219,7 @@ namespace glFTPd_Commander.Views
                 !(newVal.Equals("Unlimited", StringComparison.OrdinalIgnoreCase) ||
                   newVal.Equals("Disabled", StringComparison.OrdinalIgnoreCase) ||
                   (int.TryParse(newVal, out int val) && val >= -2)),
-                "Leech must be an integer not less than -2 (-1 = Unlimited, -2 = Disabled).", LeechTextBox))
+                "Leech must be an integer not less than -2\n\n -1 = Unlimited, -2 = Disabled.", LeechTextBox))
             {
                 LeechTextBox.Text = _oldLeech;
                 return;
@@ -235,7 +235,7 @@ namespace glFTPd_Commander.Views
                 !(newVal.Equals("Unlimited", StringComparison.OrdinalIgnoreCase) ||
                   newVal.Equals("Disabled", StringComparison.OrdinalIgnoreCase) ||
                   (int.TryParse(newVal, out int val) && val >= -2)),
-                "Allot must be an integer not less than -2 (-1 = Unlimited, -2 = Disabled).", AllotTextBox))
+                "Allot must be an integer not less than -2\n\n -1 = Unlimited, -2 = Disabled.", AllotTextBox))
             {
                 AllotTextBox.Text = _oldAllot;
                 return;
@@ -250,7 +250,7 @@ namespace glFTPd_Commander.Views
                 string.IsNullOrWhiteSpace(newVal) ||
                 !(newVal.Equals("Unlimited", StringComparison.OrdinalIgnoreCase) ||
                   (int.TryParse(newVal, out int val) && val >= 0)),
-                "Max Logins must be an integer not less than 0 (0 = Unlimited).", MaxLoginsTextBox))
+                "Max Logins must be an integer not less than 0, 0 = Unlimited.", MaxLoginsTextBox))
             {
                 MaxLoginsTextBox.Text = _oldMaxLogins;
                 return;

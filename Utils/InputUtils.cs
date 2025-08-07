@@ -139,6 +139,33 @@ namespace glFTPd_Commander.Utils
             return false;
         }
 
+        public static bool IsValidTimeframe(string input)
+        {
+            if (string.IsNullOrWhiteSpace(input))
+                return false; // Must not be empty (since glFTPd always requires a value)
+        
+            // Allow "HH:mm-HH:mm" style (e.g., 00:00-00:00, 08:00-17:00)
+            if (TimeframeRangeRegex().IsMatch(input))
+            {
+                var parts = input.Split('-', 2);
+                return TimeSpan.TryParse(parts[0], out _) && TimeSpan.TryParse(parts[1], out _);
+            }
+        
+            // Allow "H H" or "HH HH" (e.g., 8 17)
+            var partsSpace = input.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (partsSpace.Length == 2 &&
+                int.TryParse(partsSpace[0], out int startInt) &&
+                int.TryParse(partsSpace[1], out int endInt) &&
+                startInt >= 0 && startInt <= 23 && endInt >= 0 && endInt <= 23)
+            {
+                return true;
+            }
+        
+            return false;
+        }
+
+
+
         [GeneratedRegex(@"^-?\d+$")]
         private static partial Regex IntegerRegex();
         
@@ -147,5 +174,9 @@ namespace glFTPd_Commander.Utils
         
         [GeneratedRegex(@"^\d{4}-\d{2}-\d{2}$")]
         private static partial Regex FullDateRegex();
+        
+        [GeneratedRegex(@"^\d{2}:\d{2}-\d{2}:\d{2}$")]
+        private static partial Regex TimeframeRangeRegex();
+
     }
 }

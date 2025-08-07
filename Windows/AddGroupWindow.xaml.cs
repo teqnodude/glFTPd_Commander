@@ -23,9 +23,6 @@ namespace glFTPd_Commander.Windows
             Loaded += (s, e) => GroupNameTextBox.Focus();
         }
 
-        private void InputField_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
-            => AddButton.IsEnabled = !string.IsNullOrWhiteSpace(GroupName) && !string.IsNullOrWhiteSpace(Description);
-
         private async void AddButton_Click(object sender, RoutedEventArgs e)
         {
             if (InputUtils.ValidateAndWarn(string.IsNullOrWhiteSpace(GroupName), "Please enter a group name.", GroupNameTextBox)) return;
@@ -39,11 +36,8 @@ namespace glFTPd_Commander.Windows
                 GroupNameTextBox.Focus();
                 GroupNameTextBox.SelectAll();
                 Debug.WriteLine($"[AddGroupWindow] Prevented adding existing group '{GroupName}'");
-                AddButton.IsEnabled = true;
                 return;
             }
-
-            AddButton.IsEnabled = false;
 
             await _ftp.ConnectionLock.WaitAsync();
             try
@@ -54,7 +48,6 @@ namespace glFTPd_Commander.Windows
                 if (_ftpClient == null)
                 {
                     MessageBox.Show("Lost connection to the FTP server.", "Connection Lost", MessageBoxButton.OK, MessageBoxImage.Error);
-                    AddButton.IsEnabled = true;
                     return;
                 }
                 if (!string.IsNullOrEmpty(result) && !result.StartsWith("Error", System.StringComparison.OrdinalIgnoreCase))
@@ -66,7 +59,6 @@ namespace glFTPd_Commander.Windows
                 else
                 {
                     MessageBox.Show(result ?? "Unknown error", "Failed to Add Group", MessageBoxButton.OK, MessageBoxImage.Error);
-                    AddButton.IsEnabled = true;
                 }
             }
             finally

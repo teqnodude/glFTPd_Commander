@@ -19,13 +19,13 @@
         </Grid.RowDefinitions>
 
         <Label Grid.Row="0" Content="Group Name:" Width="200"/>
-        <TextBox Grid.Row="1" x:Name="GroupNameTextBox" Margin="0,0,0,10" TextChanged="InputField_TextChanged"/>
+        <TextBox Grid.Row="1" x:Name="GroupNameTextBox" Margin="0,0,0,10"/>
 
         <Label Grid.Row="2" Content="Description:"/>
-        <TextBox Grid.Row="3" x:Name="DescriptionTextBox" Margin="0,0,0,10" TextChanged="InputField_TextChanged"/>
+        <TextBox Grid.Row="3" x:Name="DescriptionTextBox" Margin="0,0,0,10"/>
 
         <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right">
-            <Button x:Name="AddButton" Content="Add" Margin="0,0,10,0" Click="AddButton_Click" IsDefault="True" IsEnabled="False"/>
+            <Button x:Name="AddButton" Content="Add" Margin="0,0,10,0" Click="AddButton_Click" IsDefault="True"/>
             <Button x:Name="CancelButton" Content="Cancel" Click="CancelButton_Click" IsCancel="True"/>
         </StackPanel>
     </Grid>

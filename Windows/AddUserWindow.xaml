@@ -21,7 +21,7 @@
 
         <!-- Username -->
         <Label Content="Username:" Width="300" Grid.Row="0"/>
-        <TextBox x:Name="UsernameTextBox" Margin="0,0,0,10" Grid.Row="1" TextChanged="InputField_TextChanged"/>
+        <TextBox x:Name="UsernameTextBox" Margin="0,0,0,10" Grid.Row="1"/>
 
         <!-- Password -->
         <Label Content="Password:" Grid.Row="2"/>
@@ -36,15 +36,15 @@
 
         <!-- Group -->
         <Label Content="Group:" Grid.Row="4"/>
-        <ComboBox x:Name="GroupsComboBox" Margin="0,0,0,10" SelectionChanged="GroupsComboBox_SelectionChanged" Grid.Row="5"/>
+        <ComboBox x:Name="GroupsComboBox" Margin="0,0,0,10" Grid.Row="5"/>
 
         <!-- IP Address -->
         <Label Content="IP Address:" Grid.Row="6"/>
-        <TextBox x:Name="IpTextBox" Margin="0,0,0,10" TextChanged="InputField_TextChanged" Grid.Row="7"/>
+        <TextBox x:Name="IpTextBox" Margin="0,0,0,10" Grid.Row="7"/>
 
         <!-- Buttons -->
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Grid.Row="8">
-            <Button x:Name="AddButton" Content="Add" Margin="0,0,10,0" Click="AddButton_Click" IsDefault="True" IsEnabled="False"/>
+            <Button x:Name="AddButton" Content="Add" Margin="0,0,10,0" Click="AddButton_Click" IsDefault="True"/>
             <Button x:Name="CancelButton" Content="Cancel" Click="CancelButton_Click" IsCancel="True"/>
         </StackPanel>
     </Grid>

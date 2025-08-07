@@ -96,10 +96,10 @@ permissions in the config file.</TextBlock>
                 <TextBox x:Name="TimeOnTodayTextBox" IsReadOnly="True" Margin="0,0,0,5" />
 
                 <Label Content="Flags:"/>
-                <TextBox x:Name="FlagsTextBox" PreviewTextInput="FlagsInput" Margin="0,0,0,5" ToolTip="{StaticResource FlagsHelpTooltip}" LostFocus="FlagsTextBox_LostFocus"/>
+                <TextBox x:Name="FlagsTextBox" GotFocus="MoveCaretToEnd" PreviewTextInput="FlagsInput" Margin="0,0,0,5" ToolTip="{StaticResource FlagsHelpTooltip}" LostFocus="FlagsTextBox_LostFocus"/>
 
                 <Label Content="Ratios:"/>
-                <TextBox x:Name="RatiosTextBox" PreviewTextInput="ValueInput" GotKeyboardFocus="SelectAllText" Margin="0,0,0,5" ToolTip="3 = Upload 1 MiB per 3 MiB downloaded, 0 = Unlimited" LostFocus="RatiosTextBox_LostFocus"/>
+                <TextBox x:Name="RatiosTextBox" GotKeyboardFocus="SelectAllText" Margin="0,0,0,5" ToolTip="3 = Upload 1 MiB per 3 MiB downloaded, 0 = Unlimited" LostFocus="RatiosTextBox_LostFocus"/>
 
                 <StackPanel Margin="0,0,0,5">
                     <Label Content="Credits:"/>
@@ -117,16 +117,16 @@ permissions in the config file.</TextBlock>
                 <TextBox x:Name="TotalLoginsTextBox" IsReadOnly="True" Margin="0,0,0,5"/>
 
                 <Label Content="Max Logins:"/>
-                <TextBox x:Name="MaxLoginsTextBox" PreviewTextInput="ValueInput" GotKeyboardFocus="SelectAllText" Margin="0,0,0,5" ToolTip="0 = Unlimited" LostFocus="MaxLoginsTextBox_LostFocus"/>
+                <TextBox x:Name="MaxLoginsTextBox" GotKeyboardFocus="SelectAllText" Margin="0,0,0,5" ToolTip="0 = Unlimited" LostFocus="MaxLoginsTextBox_LostFocus"/>
 
                 <Label Content="Max Sim Uploads:"/>
-                <TextBox x:Name="MaxSimUploadsTextBox" PreviewTextInput="ValueInput" GotKeyboardFocus="SelectAllText" Margin="0,0,0,5" ToolTip="-1 = Unlimited, 0 = None, max 30000" LostFocus="MaxSimUploadsTextBox_LostFocus"/>
+                <TextBox x:Name="MaxSimUploadsTextBox" GotKeyboardFocus="SelectAllText" Margin="0,0,0,5" ToolTip="-1 = Unlimited, 0 = None, max 30000" LostFocus="MaxSimUploadsTextBox_LostFocus"/>
 
                 <Label Content="Max Sim Downloads:"/>
-                <TextBox x:Name="MaxSimDownloadsTextBox" PreviewTextInput="ValueInput" GotKeyboardFocus="SelectAllText" Margin="0,0,0,5" ToolTip="-1 = Unlimited, 0 = None" LostFocus="MaxSimDownloadsTextBox_LostFocus"/>
+                <TextBox x:Name="MaxSimDownloadsTextBox" GotKeyboardFocus="SelectAllText" Margin="0,0,0,5" ToolTip="-1 = Unlimited, 0 = None" LostFocus="MaxSimDownloadsTextBox_LostFocus"/>
 
                 <Label Content="From same IP:"/>
-                <TextBox x:Name="FromSameIpTextBox" PreviewTextInput="ValueInput" GotKeyboardFocus="SelectAllText" Margin="0,0,0,5" ToolTip="0 = Unlimited" LostFocus="FromSameIpTextBox_LostFocus"/>
+                <TextBox x:Name="FromSameIpTextBox" GotKeyboardFocus="SelectAllText" Margin="0,0,0,5" ToolTip="0 = Unlimited" LostFocus="FromSameIpTextBox_LostFocus"/>
             </StackPanel>
 
             <!-- Second column -->
@@ -141,7 +141,7 @@ permissions in the config file.</TextBlock>
                 <TextBox x:Name="LastSeenTextBox" IsReadOnly="True" Margin="0,0,0,5"/>
 
                 <Label Content="Idle time:"/>
-                <TextBox x:Name="IdleTimeTextBox" PreviewTextInput="ValueInput" GotKeyboardFocus="SelectAllText" Margin="0,0,0,5" ToolTip="In seconds, -1 = Disable" LostFocus="IdleTimeTextBox_LostFocus"/>
+                <TextBox x:Name="IdleTimeTextBox" GotKeyboardFocus="SelectAllText" Margin="0,0,0,5" ToolTip="In seconds, -1 = Disable" LostFocus="IdleTimeTextBox_LostFocus"/>
 
                 <Label Content="Max Upload Speed:"/>
                 <StackPanel Orientation="Horizontal">
@@ -168,7 +168,7 @@ permissions in the config file.</TextBlock>
                 </StackPanel>
 
                 <Label Content="Time Limit:"/>
-                <TextBox x:Name="TimeLimitTextBox" PreviewTextInput="ValueInput" GotKeyboardFocus="SelectAllText" Margin="0,0,0,5" ToolTip="In minutes, 0 = Unlimited" LostFocus="TimeLimitTextBox_LostFocus"/>
+                <TextBox x:Name="TimeLimitTextBox" GotKeyboardFocus="SelectAllText" Margin="0,0,0,5" ToolTip="In minutes, 0 = Unlimited" LostFocus="TimeLimitTextBox_LostFocus"/>
 
                 <Label Content="Timeframe:"/>
                 <TextBox x:Name="TimeframeTextBox" GotKeyboardFocus="SelectAllText" Margin="0,0,0,5" ToolTip="8 17 for between 08-17" LostFocus="TimeframeTextBox_LostFocus"/>

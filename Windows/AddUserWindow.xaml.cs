@@ -64,17 +64,6 @@ namespace glFTPd_Commander.Windows
             }
         }
 
-        private void InputField_TextChanged(object sender, TextChangedEventArgs e) => UpdateAddButtonState();
-        private void GroupsComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e) => UpdateAddButtonState();
-
-        private void UpdateAddButtonState()
-        {
-            AddButton.IsEnabled = !string.IsNullOrWhiteSpace(Username)
-                               && !string.IsNullOrWhiteSpace(Password)
-                               && GroupsComboBox.SelectedItem != null
-                               && !string.IsNullOrWhiteSpace(IpAddress);
-        }
-
         private void RevealPassword(bool show)
         {
             if (show)

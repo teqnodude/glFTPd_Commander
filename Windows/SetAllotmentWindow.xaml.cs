@@ -13,7 +13,7 @@ namespace glFTPd_Commander.Windows
     public partial class SetAllotmentWindow : BaseWindow
     {
         private readonly GlFtpdClient _ftp;
-        private FtpClient? _ftpClient;
+        private readonly FtpClient? _ftpClient;
         private readonly string _username;
 
         public string Section => SectionTextBox.Text.Trim();
@@ -33,31 +33,58 @@ namespace glFTPd_Commander.Windows
             Loaded += (s, e) => AmountTextBox.Focus();
         }
 
-        private async void OkButton_Click(object sender, RoutedEventArgs e)
+        public static async Task<bool> ShowAndSetAllotment(Window owner, GlFtpdClient ftp, FtpClient? ftpClient, string username)
+        {
+            var window = new SetAllotmentWindow(ftp, ftpClient!, username)
+            {
+                Owner = owner,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner
+            };
+        
+            if (window.ShowDialog() == true)
+            {
+                var amount = window.Amount;
+                var section = window.Section;
+                var unit = window.Unit;
+                if (!decimal.TryParse(amount, out _))
+                {
+                    MessageBox.Show("Amount must be a number.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return false;
+                }
+                if (!int.TryParse(section, out _))
+                {
+                    MessageBox.Show("Section must be a number.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return false;
+                }
+                string command = $"SITE CHANGE {username} wkly_allotment {section},{amount}{unit}";
+                await ftp.ConnectionLock.WaitAsync();
+                try
+                {
+                    var (result, updatedClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync(command, ftpClient, ftp);
+                    ftpClient = updatedClient;
+                    if (result.Contains("Error", System.StringComparison.OrdinalIgnoreCase))
+                    {
+                        MessageBox.Show($"Failed to set allotment: {result}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                        return false;
+                    }
+                    return true;
+                }
+                finally
+                {
+                    ftp.ConnectionLock.Release();
+                }
+            }
+            return false;
+        }
+
+
+
+        private void OkButton_Click(object sender, RoutedEventArgs e)
         {
             if (InputUtils.ValidateAndWarn(string.IsNullOrWhiteSpace(Amount), "Please enter an amount.", AmountTextBox)) return;
 
-            string command = $"SITE CHANGE {_username} wkly_allotment {Section},{Amount}{Unit}";
-
-            await _ftp.ConnectionLock.WaitAsync();
-            try
-            {
-                var (result, updatedClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync(command, _ftpClient, _ftp);
-                _ftpClient = updatedClient;
-                if (result.Contains("Error", System.StringComparison.OrdinalIgnoreCase))
-                {
-                    MessageBox.Show($"Failed to set allotment: {result}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                }
-                else
-                {
-                    DialogResult = true;
-                    Close();
-                }
-            }
-            finally
-            {
-                _ftp.ConnectionLock.Release();
-            }
+            DialogResult = true;
+            Close();
         }
 
         private void CancelButton_Click(object sender, RoutedEventArgs e)

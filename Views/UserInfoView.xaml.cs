@@ -429,7 +429,7 @@ namespace glFTPd_Commander.Views
                 string.IsNullOrWhiteSpace(newVal) ||
                 !(newVal.Equals("Unlimited", StringComparison.OrdinalIgnoreCase) ||
                   int.TryParse(newVal, out _)),
-                "Ratio must be an integer or 'Unlimited'.", RatiosTextBox))
+                "Ratio must be an integer not less than 0, 0 = Unlimited.", RatiosTextBox))
             {
                 RatiosTextBox.Text = _oldRatios;
                 return;
@@ -447,7 +447,7 @@ namespace glFTPd_Commander.Views
         {
             string newVal = ExpiresTextBox.Text.Trim();
             string checkedVal = newVal.Equals("Never", StringComparison.OrdinalIgnoreCase) ? "0" : newVal;
-            if (InputUtils.ValidateAndWarn(!InputUtils.IsValidExpiresInput(checkedVal), "Expires must be 0 or in the format YYYY-MM-DD.", ExpiresTextBox))
+            if (InputUtils.ValidateAndWarn(!InputUtils.IsValidExpiresInput(checkedVal), "Expires must be in the format YYYY-MM-DD, 0 = Never.", ExpiresTextBox))
             {
                 ExpiresTextBox.Text = _oldExpires;
                 return;
@@ -461,9 +461,9 @@ namespace glFTPd_Commander.Views
             string newVal = IdleTimeTextBox.Text.Trim();
             if (InputUtils.ValidateAndWarn(
                 string.IsNullOrWhiteSpace(newVal) ||
-                !(newVal.Equals("Unlimited", StringComparison.OrdinalIgnoreCase) ||
+                !(newVal.Equals("Disabled", StringComparison.OrdinalIgnoreCase) ||
                   (int.TryParse(newVal, out int minutes) && minutes >= -1)),
-                "Idle time must be -1 (disabled), any positive integer (in seconds), or 'Unlimited'.", IdleTimeTextBox))
+                "Idle time must be an interger in seconds, -1 = disabled.", IdleTimeTextBox))
             {
                 IdleTimeTextBox.Text = _oldIdleTime;
                 return;
@@ -511,7 +511,7 @@ namespace glFTPd_Commander.Views
                 string.IsNullOrWhiteSpace(newVal) ||
                 !(newVal.Equals("Unlimited", StringComparison.OrdinalIgnoreCase) ||
                   (int.TryParse(newVal, out int val) && val >= 0)),
-                "Max Logins must be an integer not less than 0 (0 = Unlimited).", MaxLoginsTextBox))
+                "Max Logins must be an integer not less than 0, 0 = Unlimited.", MaxLoginsTextBox))
             {
                 MaxLoginsTextBox.Text = _oldMaxLogins;
                 return;
@@ -527,7 +527,7 @@ namespace glFTPd_Commander.Views
                 string.IsNullOrWhiteSpace(newVal) ||
                 !(newVal.Equals("Unlimited", StringComparison.OrdinalIgnoreCase) ||
                   (int.TryParse(newVal, out int val) && val >= 0)),
-                "From same IP must be 0 (unlimited), any positive integer, or 'Unlimited'.", FromSameIpTextBox))
+                "From same IP must be an integer not less than 0\n\n 0 = Unlimited.", FromSameIpTextBox))
             {
                 FromSameIpTextBox.Text = _oldFromSameIp;
                 return;
@@ -567,7 +567,7 @@ namespace glFTPd_Commander.Views
                 string.IsNullOrWhiteSpace(newVal) ||
                 !(newVal.Equals("Unlimited", StringComparison.OrdinalIgnoreCase) ||
                   (int.TryParse(newVal, out int val) && val >= -1 && val <= 30000)),
-                "Max simultaneous uploads must be between -1 and 30000 (-1 = Unlimited, or 'Unlimited').", MaxSimUploadsTextBox))
+                "Max simultaneous uploads must be between -1 and 30000\n\n 0 = None, -1 = Unlimited.", MaxSimUploadsTextBox))
             {
                 MaxSimUploadsTextBox.Text = _oldMaxSimUploads;
                 return;
@@ -583,7 +583,7 @@ namespace glFTPd_Commander.Views
                 string.IsNullOrWhiteSpace(newVal) ||
                 !(newVal.Equals("Unlimited", StringComparison.OrdinalIgnoreCase) ||
                   (int.TryParse(newVal, out int val) && val >= -1 && val <= 30000)),
-                "Max simultaneous downloads must be between -1 and 30000 (-1 = Unlimited, or 'Unlimited').", MaxSimDownloadsTextBox))
+                "Max simultaneous downloads must be between -1 and 30000\n\n 0 = None, -1 = Unlimited.", MaxSimDownloadsTextBox))
             {
                 MaxSimDownloadsTextBox.Text = _oldMaxSimDownloads;
                 return;
@@ -597,7 +597,7 @@ namespace glFTPd_Commander.Views
             string newVal = TimeLimitTextBox.Text.Trim();
             if (InputUtils.ValidateAndWarn(
                     !int.TryParse(newVal, out int val) || val < 0,
-                    "Time limit must be 0 (unlimited) or any positive integer (in minutes).", TimeLimitTextBox))
+                    "Time limit must be an integer not less than 0 in minutes\n\n 0 = Unlimited.", TimeLimitTextBox))
             {
                 TimeLimitTextBox.Text = _oldTimeLimit;
                 return;
@@ -609,6 +609,15 @@ namespace glFTPd_Commander.Views
         private async void TimeframeTextBox_LostFocus(object sender, RoutedEventArgs e)
         {
             string newVal = TimeframeTextBox.Text.Trim();
+            if (InputUtils.ValidateAndWarn(
+                    !InputUtils.IsValidTimeframe(newVal),
+                    "Timeframe must be two hours (e.g. '8 17'), 0 0 = all day ).",
+                    TimeframeTextBox))
+            {
+                TimeframeTextBox.Text = _oldTimeframe;
+                TimeframeTextBox.SelectAll();
+                return;
+            }
             if (_oldTimeframe == newVal) return;
             await ApplyUserChange($"SITE CHANGE {_username} timeframe {newVal}", _oldTimeframe!, v => _oldTimeframe = v, TimeframeTextBox);
         }
@@ -889,31 +898,13 @@ namespace glFTPd_Commander.Views
         
         private async void AddCreditsButton_Click(object sender, RoutedEventArgs e)
         {
-            _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
-                if (_ftpClient == null) return;
-        
-            var window = new CreditAdjustWindow(_ftp!, _ftpClient!, _username, "GIVE")
-            {
-                Owner = Window.GetWindow(this),
-                WindowStartupLocation = WindowStartupLocation.CenterOwner
-            };
-        
-            if (window.ShowDialog() == true)
+            if (await CreditAdjustWindow.ShowAndAdjustCredits(Window.GetWindow(this), _ftp!, _ftpClient, _username, "GIVE"))
                 await LoadUserDetails();
         }
         
         private async void TakeCreditsButton_Click(object sender, RoutedEventArgs e)
         {
-            _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
-                if (_ftpClient == null) return;
-        
-            var window = new CreditAdjustWindow(_ftp!, _ftpClient!, _username, "TAKE")
-            {
-                Owner = Window.GetWindow(this),
-                WindowStartupLocation = WindowStartupLocation.CenterOwner
-            };
-        
-            if (window.ShowDialog() == true)
+            if (await CreditAdjustWindow.ShowAndAdjustCredits(Window.GetWindow(this), _ftp!, _ftpClient, _username, "TAKE"))
                 await LoadUserDetails();
         }
 
@@ -1002,19 +993,8 @@ namespace glFTPd_Commander.Views
 
         private async void SetAllotmentButton_Click(object sender, RoutedEventArgs e)
         {
-            _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
-                if (_ftpClient == null) return;
-        
-            var setAllotmentWindow = new SetAllotmentWindow(_ftp!, _ftpClient!, _username)
-            {
-                Owner = Window.GetWindow(this),
-                WindowStartupLocation = WindowStartupLocation.CenterOwner
-            };
-        
-            if (setAllotmentWindow.ShowDialog() == true)
-            {
+            if (await SetAllotmentWindow.ShowAndSetAllotment(Window.GetWindow(this), _ftp!, _ftpClient, _username))
                 await LoadUserDetails();
-            }
         }
 
         private async void SetMaxUploadSpeed_Click(object sender, RoutedEventArgs e)
