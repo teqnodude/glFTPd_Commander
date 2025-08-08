@@ -1,0 +1,65 @@
+﻿<local:BaseWindow
+    x:Class="glFTPd_Commander.Windows.CreditAdjustWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="clr-namespace:glFTPd_Commander.Windows"
+    Title="Adjust Credits"
+    ResizeMode="NoResize"
+    SizeToContent="WidthAndHeight"
+    WindowStartupLocation="CenterOwner">
+
+    <Grid Margin="10">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <Label
+            Grid.Row="0"
+            Grid.Column="0"
+            Margin="0,0,10,0"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Center"
+            Content="Amount:" />
+        <TextBox
+            x:Name="AmountTextBox"
+            Grid.Row="0"
+            Grid.Column="1"
+            Margin="0,0,0,10" />
+        <Label
+            Grid.Row="1"
+            Grid.Column="0"
+            Margin="0,0,10,0"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Center"
+            Content="Unit:" />
+        <ComboBox
+            x:Name="UnitsComboBox"
+            Grid.Row="1"
+            Grid.Column="1"
+            Margin="0,0,0,15"
+            DisplayMemberPath="Display" />
+        <StackPanel
+            Grid.Row="2"
+            Grid.ColumnSpan="2"
+            HorizontalAlignment="Right"
+            Orientation="Horizontal">
+            <Button
+                Width="75"
+                Margin="0,0,10,0"
+                Click="OkButton_Click"
+                Content="OK"
+                IsDefault="True" />
+            <Button
+                Width="75"
+                Click="CancelButton_Click"
+                Content="Cancel"
+                IsCancel="True" />
+        </StackPanel>
+    </Grid>
+
+</local:BaseWindow>

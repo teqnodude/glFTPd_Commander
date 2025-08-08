@@ -1,0 +1,64 @@
+﻿<Window
+    x:Class="glFTPd_Commander.CertificateWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="SSL Certificate Details"
+    Width="600"
+    Height="400"
+    ResizeMode="NoResize"
+    WindowStartupLocation="CenterOwner">
+
+    <Grid Margin="10">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <Label
+            Grid.Row="0"
+            Grid.Column="0"
+            Grid.ColumnSpan="2"
+            Margin="0,0,0,10"
+            Content="Server Certificate Details:"
+            FontWeight="Bold" />
+        <TextBox
+            x:Name="CertificateDetailsTextBox"
+            Grid.Row="1"
+            Grid.Column="0"
+            Grid.ColumnSpan="2"
+            Margin="0,0,0,10"
+            HorizontalScrollBarVisibility="Auto"
+            IsReadOnly="True"
+            TextWrapping="Wrap"
+            VerticalScrollBarVisibility="Auto" />
+        <CheckBox
+            x:Name="RememberCertificateCheckBox"
+            Grid.Row="2"
+            Grid.Column="1"
+            Margin="0,0,0,15"
+            Content="Remember this certificate" />
+        <StackPanel
+            Grid.Row="3"
+            Grid.ColumnSpan="2"
+            HorizontalAlignment="Right"
+            Orientation="Horizontal">
+            <Button
+                x:Name="AcceptButton"
+                Width="80"
+                Margin="0,0,10,0"
+                Click="AcceptButton_Click"
+                Content="Accept" />
+            <Button
+                x:Name="RejectButton"
+                Width="80"
+                Click="RejectButton_Click"
+                Content="Reject" />
+        </StackPanel>
+    </Grid>
+
+</Window>

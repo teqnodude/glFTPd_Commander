@@ -1,0 +1,56 @@
+﻿<local:BaseWindow
+    x:Class="glFTPd_Commander.Windows.AddGroupWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="clr-namespace:glFTPd_Commander.Windows"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    Title="Add New Group"
+    ResizeMode="NoResize"
+    SizeToContent="WidthAndHeight"
+    WindowStartupLocation="CenterOwner"
+    mc:Ignorable="d">
+
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Label
+            Grid.Row="0"
+            Width="200"
+            Content="Group Name:" />
+        <TextBox
+            x:Name="GroupNameTextBox"
+            Grid.Row="1"
+            Margin="0,0,0,10" />
+
+        <Label Grid.Row="2" Content="Description:" />
+        <TextBox
+            x:Name="DescriptionTextBox"
+            Grid.Row="3"
+            Margin="0,0,0,10" />
+
+        <StackPanel
+            Grid.Row="4"
+            HorizontalAlignment="Right"
+            Orientation="Horizontal">
+            <Button
+                x:Name="AddButton"
+                Margin="0,0,10,0"
+                Click="AddButton_Click"
+                Content="Add"
+                IsDefault="True" />
+            <Button
+                x:Name="CancelButton"
+                Click="CancelButton_Click"
+                Content="Cancel"
+                IsCancel="True" />
+        </StackPanel>
+    </Grid>
+
+</local:BaseWindow>

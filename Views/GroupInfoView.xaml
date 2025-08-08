@@ -1,0 +1,153 @@
+﻿<local:BaseUserControl
+    x:Class="glFTPd_Commander.Views.GroupInfoView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="clr-namespace:glFTPd_Commander.Views"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    d:DesignHeight="700"
+    d:DesignWidth="1130"
+    mc:Ignorable="d">
+
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Label
+            Margin="0,0,0,10"
+            HorizontalAlignment="Center"
+            Content="Group Information"
+            FontSize="16"
+            FontWeight="Bold" />
+
+        <Grid Grid.Row="1" Margin="0,10,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="250" />
+                <ColumnDefinition Width="250" />
+                <ColumnDefinition Width="2*" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0" Margin="0,0,10,0">
+                <Label Content="Group Name:" />
+                <TextBox
+                    x:Name="GroupNameTextBox"
+                    Margin="0,0,0,10"
+                    GotFocus="MoveCaretToEnd"
+                    LostFocus="GroupNameTextBox_LostFocus" />
+
+                <Label Content="Description:" />
+                <TextBox
+                    x:Name="DescriptionTextBox"
+                    Margin="0,0,0,10"
+                    GotKeyboardFocus="SelectAllText"
+                    LostFocus="DescriptionTextBox_LostFocus" />
+
+                <Label Content="Slots:" />
+                <TextBox
+                    x:Name="SlotsTextBox"
+                    Margin="0,0,0,10"
+                    GotKeyboardFocus="SelectAllText"
+                    LostFocus="SlotsTextBox_LostFocus"
+                    ToolTip="-1 = Unlimited" />
+
+                <Label Content="Leech:" />
+                <TextBox
+                    x:Name="LeechTextBox"
+                    Margin="0,0,0,10"
+                    GotKeyboardFocus="SelectAllText"
+                    LostFocus="LeechTextBox_LostFocus"
+                    ToolTip="-1 = Unlimited, -2 = Disabled" />
+
+                <Button
+                    x:Name="GroupRemoveButton"
+                    Background="DarkRed"
+                    Click="GroupRemoveButton_Click"
+                    Content="Remove Group"
+                    Foreground="White" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Margin="0,0,10,0">
+                <Label Content="Allot:" />
+                <TextBox
+                    x:Name="AllotTextBox"
+                    Margin="0,0,0,10"
+                    GotKeyboardFocus="SelectAllText"
+                    LostFocus="AllotTextBox_LostFocus"
+                    ToolTip="-1 = Unlimited, -2 = Disabled" />
+
+                <Label Content="Max Allot:" />
+                <StackPanel Margin="0,0,0,10" Orientation="Horizontal">
+                    <TextBox
+                        x:Name="MaxAllotTextBox"
+                        Width="180"
+                        Margin="0,0,10,0"
+                        IsReadOnly="True"
+                        ToolTip="0 = Unlimited" />
+                    <Button
+                        Width="50"
+                        Click="SetMaxAllotButton_Click"
+                        Content="Set" />
+                </StackPanel>
+
+                <Label Content="Max Logins:" />
+                <TextBox
+                    x:Name="MaxLoginsTextBox"
+                    Margin="0,0,0,10"
+                    GotKeyboardFocus="SelectAllText"
+                    LostFocus="MaxLoginsTextBox_LostFocus"
+                    ToolTip="0 = Unlimited" />
+
+                <Label Content="Comment:" />
+                <TextBox
+                    x:Name="CommentTextBox"
+                    Margin="0,0,0,10"
+                    GotKeyboardFocus="SelectAllText"
+                    LostFocus="CommentTextBox_LostFocus"
+                    ToolTip="Max 63 symbols" />
+            </StackPanel>
+            <Grid
+                Grid.Column="2"
+                Height="250"
+                Margin="0,0,0,0"
+                VerticalAlignment="Top">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0">
+                    <Label Content="Available Users:" />
+                    <ListBox
+                        x:Name="AvailableUsersComboBox"
+                        Width="250"
+                        Height="250"
+                        SelectionMode="Extended" />
+                </StackPanel>
+                <StackPanel
+                    Grid.Column="1"
+                    Margin="10,0"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center">
+                    <Button
+                        Width="100"
+                        Margin="0,0,0,10"
+                        Click="AddButton_Click"
+                        Content="Add →" />
+                    <Button
+                        Width="100"
+                        Click="RemoveButton_Click"
+                        Content="← Remove" />
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                    <Label Content="Group Admin:" />
+                    <ListBox
+                        x:Name="GroupAdminComboBox"
+                        Width="250"
+                        Height="250"
+                        SelectionMode="Extended" />
+                </StackPanel>
+            </Grid>
+        </Grid>
+    </Grid>
+
+</local:BaseUserControl>
