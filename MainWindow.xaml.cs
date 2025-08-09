@@ -302,7 +302,7 @@ namespace glFTPd_Commander
                 var groups = groupsTask.Result ?? [];
                 var deletedUsers = deletedUsersTask.Result ?? [];
         
-                var root = new FtpTreeItem { Name = $"FTP Server: {_ftp.Host}", IsRoot = true };
+                var root = new FtpTreeItem { Name = $"FTP Server: {_currentConnectionEncryptedName}", IsRoot = true };
         
                 // USERS
                 var usersNode = new FtpTreeItem { Name = $"Users ({users.Count + deletedUsers.Count})" };

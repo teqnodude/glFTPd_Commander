@@ -89,16 +89,14 @@
             x:Name="ServerTextBox"
             Grid.Row="10"
             Margin="0,0,0,10"
-            GotFocus="MoveCaretToEnd"
-            PreviewTextInput="ServerInput" />
+            GotFocus="MoveCaretToEnd" />
 
         <Label Grid.Row="11" Content="Port:" />
         <TextBox
             x:Name="PortTextBox"
             Grid.Row="12"
             Margin="0,0,0,10"
-            GotFocus="MoveCaretToEnd"
-            PreviewTextInput="AmountInput" />
+            GotFocus="MoveCaretToEnd" />
 
         <Label Grid.Row="13" Content="SSL Mode:" />
         <ComboBox

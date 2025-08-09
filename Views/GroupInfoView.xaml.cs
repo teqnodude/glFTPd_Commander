@@ -269,7 +269,13 @@ namespace glFTPd_Commander.Views
                 CommentTextBox.SelectAll();
                 return;
             }
-        
+            if (InputUtils.ValidateAndWarn(!Regex.IsMatch(newVal, @"^[a-zA-Z0-9 ]+$"),
+                "Comment may only contain letters, numbers, and spaces (no special characters).", CommentTextBox))
+            {
+                CommentTextBox.Text = _oldComment;
+                return;
+            }
+
             await ApplyGroupChange($"SITE GRPCHANGE {_group} comment {newVal}", _oldComment!, v => _oldComment = v, CommentTextBox);
         }
 

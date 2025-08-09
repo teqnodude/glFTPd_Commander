@@ -543,6 +543,12 @@ namespace glFTPd_Commander.Views
                 TaglineTextBox.Text = _oldTagline;
                 return;
             }
+            if (InputUtils.ValidateAndWarn(!Regex.IsMatch(newVal, @"^[a-zA-Z0-9 ]+$"),
+                "Tagline may only contain letters and numbers (no spaces or special characters).", TaglineTextBox))
+            {
+                TaglineTextBox.Text = _oldTagline;
+                return;
+            }
             if (_oldTagline == newVal) return;
             await ApplyUserChange($"SITE CHANGE {_username} tagline {newVal}", _oldTagline!, v => _oldTagline = v, TaglineTextBox);
         }
@@ -551,6 +557,12 @@ namespace glFTPd_Commander.Views
         {
             string newVal = UserCommentTextBox.Text.Trim();
             if (InputUtils.ValidateAndWarn(string.IsNullOrWhiteSpace(newVal), "Please enter a user comment.", UserCommentTextBox))
+            {
+                UserCommentTextBox.Text = _oldUserComment;
+                return;
+            }
+            if (InputUtils.ValidateAndWarn(!Regex.IsMatch(newVal, @"^[a-zA-Z0-9 ]+$"),
+                "Comment may only contain letters and numbers (no spaces or special characters).", UserCommentTextBox))
             {
                 UserCommentTextBox.Text = _oldUserComment;
                 return;
