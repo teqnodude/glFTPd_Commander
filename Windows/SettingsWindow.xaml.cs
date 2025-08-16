@@ -186,7 +186,12 @@ namespace glFTPd_Commander.Windows
             if (InputUtils.ValidateAndWarn(string.IsNullOrWhiteSpace(password), "Please enter a password.", pwControl)) return;
             if (InputUtils.ValidateAndWarn(string.IsNullOrWhiteSpace(host), "Please enter a server.", ServerTextBox)) return;
             if (InputUtils.ValidateAndWarn(string.IsNullOrWhiteSpace(port), "Please enter a port.", PortTextBox)) return;
-        
+            if (InputUtils.ValidateAndWarn(
+                    !int.TryParse(port, out int portNum) || portNum <= 0 || portNum > 65535,
+                    "Please enter a valid port number between 1 and 65535.",
+                    PortTextBox))
+                            return;
+
             if (connections.Any(c => c != currentConnection && c.Name?.Equals(newName, StringComparison.OrdinalIgnoreCase) == true))
             {
                 MessageBox.Show("A connection with this name already exists.", "Duplicate Name",
@@ -232,16 +237,5 @@ namespace glFTPd_Commander.Windows
                 mainWindow.PopulateConnectMenu();
             }
         }
-
-        private void ServerInput(object sender, TextCompositionEventArgs e)
-        {
-            glFTPd_Commander.Utils.InputUtils.IpAddressInputFilter(sender, e);
-        }
-
-        private void AmountInput(object sender, TextCompositionEventArgs e)
-        {
-            glFTPd_Commander.Utils.InputUtils.DigitsOnly(sender, e);
-        }
-
     }
 }
