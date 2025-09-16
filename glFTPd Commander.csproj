@@ -11,7 +11,7 @@
 	<EnablePreviewFeatures>true</EnablePreviewFeatures>
     <NoWarn>$(NoWarn);WPF0001</NoWarn>
 	<Product>glFTPd Commander</Product>
-	<Version>1.0.1</Version>
+	<Version>1.0.2</Version>
 	<Company>teqnodude</Company>
 	<Authors>teqnodude</Authors>
 	<Description>FTP management of users and groups</Description>

@@ -106,7 +106,7 @@ namespace glFTPd_Commander.FTP
             var client = new FtpClient(Host)
             {
                 Credentials = new NetworkCredential(Username, Password),
-                Port = short.TryParse(Port, out short portNum) ? portNum : 21,
+                Port = int.TryParse(Port, out var portNum) && portNum >= 1 && portNum <= 65535 ? portNum : 21,
                 Config = {
                     EncryptionMode = encryptionMode,
                     DataConnectionEncryption = true,
@@ -117,7 +117,7 @@ namespace glFTPd_Commander.FTP
                     RetryAttempts = 2
                 }
             };
-        
+
             CertificateStorage.AttachFtpCertificateValidation(client, promptLock, approvedInSession, rejectedInSession, promptingThumbprints, Host);
         
             return client;
