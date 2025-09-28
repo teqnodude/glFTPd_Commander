@@ -40,14 +40,14 @@
                 <TextBox
                     x:Name="DescriptionTextBox"
                     Margin="0,0,0,10"
-                    GotKeyboardFocus="SelectAllText"
+                    GotFocus="SelectAllText"
                     LostFocus="DescriptionTextBox_LostFocus" />
 
                 <Label Content="Slots:" />
                 <TextBox
                     x:Name="SlotsTextBox"
                     Margin="0,0,0,10"
-                    GotKeyboardFocus="SelectAllText"
+                    GotFocus="SelectAllText"
                     LostFocus="SlotsTextBox_LostFocus"
                     ToolTip="-1 = Unlimited" />
 
@@ -55,7 +55,7 @@
                 <TextBox
                     x:Name="LeechTextBox"
                     Margin="0,0,0,10"
-                    GotKeyboardFocus="SelectAllText"
+                    GotFocus="SelectAllText"
                     LostFocus="LeechTextBox_LostFocus"
                     ToolTip="-1 = Unlimited, -2 = Disabled" />
 
@@ -71,7 +71,7 @@
                 <TextBox
                     x:Name="AllotTextBox"
                     Margin="0,0,0,10"
-                    GotKeyboardFocus="SelectAllText"
+                    GotFocus="SelectAllText"
                     LostFocus="AllotTextBox_LostFocus"
                     ToolTip="-1 = Unlimited, -2 = Disabled" />
 
@@ -93,7 +93,7 @@
                 <TextBox
                     x:Name="MaxLoginsTextBox"
                     Margin="0,0,0,10"
-                    GotKeyboardFocus="SelectAllText"
+                    GotFocus="SelectAllText"
                     LostFocus="MaxLoginsTextBox_LostFocus"
                     ToolTip="0 = Unlimited" />
 
@@ -101,7 +101,7 @@
                 <TextBox
                     x:Name="CommentTextBox"
                     Margin="0,0,0,10"
-                    GotKeyboardFocus="SelectAllText"
+                    GotFocus="SelectAllText"
                     LostFocus="CommentTextBox_LostFocus"
                     ToolTip="Max 63 symbols" />
             </StackPanel>

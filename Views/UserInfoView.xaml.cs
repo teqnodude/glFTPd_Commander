@@ -503,38 +503,67 @@ namespace glFTPd_Commander.Views
             await ApplyUserChange($"SITE CHANGE {_username} idle_time {newVal}", _oldIdleTime!, v => _oldIdleTime = v, IdleTimeTextBox);
         }
 
-        private async void MaxLoginsTextBox_LostFocus(object sender, RoutedEventArgs e)
+        private async Task UpdateNumLoginsAsync(bool changedMaxField)
         {
-            string newVal = MaxLoginsTextBox.Text.Trim();
+            // pick context based on which box changed
+            var targetTextBox = changedMaxField ? MaxLoginsTextBox : FromSameIpTextBox;
+            var validationMsg = changedMaxField
+                ? "Max Logins must be an integer not less than 0, 0 = Unlimited."
+                : "From same IP must be an integer not less than 0\n\n 0 = Unlimited.";
+
+            string newVal = targetTextBox.Text.Trim();
+
+            // validate
             if (InputUtils.ValidateAndWarn(
-                string.IsNullOrWhiteSpace(newVal) ||
-                !(newVal.Equals("Unlimited", StringComparison.OrdinalIgnoreCase) ||
-                  (int.TryParse(newVal, out int val) && val >= 0)),
-                "Max Logins must be an integer not less than 0, 0 = Unlimited.", MaxLoginsTextBox))
+                    string.IsNullOrWhiteSpace(newVal) ||
+                    !(newVal.Equals("Unlimited", StringComparison.OrdinalIgnoreCase) ||
+                      (int.TryParse(newVal, out int val) && val >= 0)),
+                    validationMsg, targetTextBox))
             {
-                MaxLoginsTextBox.Text = _oldMaxLogins;
+                if (changedMaxField)
+                    MaxLoginsTextBox.Text = _oldMaxLogins;
+                else
+                    FromSameIpTextBox.Text = _oldFromSameIp;
                 return;
             }
-            if (_oldMaxLogins == newVal) return;
-            await ApplyUserChange($"SITE CHANGE {_username} max_logins {newVal}", _oldMaxLogins!, v => _oldMaxLogins = v, MaxLoginsTextBox);
+
+            // short-circuit if not changed
+            if (changedMaxField ? _oldMaxLogins == newVal : _oldFromSameIp == newVal)
+                return;
+
+            // build args (inline normalization "Unlimited" -> "0")
+            string maxLoginsArg = (changedMaxField ? newVal : (_oldMaxLogins ?? "0"))
+                .Equals("Unlimited", StringComparison.OrdinalIgnoreCase) ? "0" :
+                (changedMaxField ? newVal : _oldMaxLogins!);
+
+            string fromSameIpArg = (!changedMaxField ? newVal : (_oldFromSameIp ?? "0"))
+                .Equals("Unlimited", StringComparison.OrdinalIgnoreCase) ? "0" :
+                (!changedMaxField ? newVal : _oldFromSameIp!);
+
+            string cmd = $"SITE CHANGE {_username} num_logins {maxLoginsArg} {fromSameIpArg}";
+            Debug.WriteLine($"[UserInfoView] {cmd}");
+
+            // route ApplyUserChange to the correct backing field
+            if (changedMaxField)
+            {
+                await ApplyUserChange(cmd, _oldMaxLogins!, v => _oldMaxLogins = v, MaxLoginsTextBox);
+            }
+            else
+            {
+                await ApplyUserChange(cmd, _oldFromSameIp!, v => _oldFromSameIp = v, FromSameIpTextBox);
+            }
+        }
+
+        private async void MaxLoginsTextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            await UpdateNumLoginsAsync(changedMaxField: true);
         }
 
         private async void FromSameIpTextBox_LostFocus(object sender, RoutedEventArgs e)
         {
-            string newVal = FromSameIpTextBox.Text.Trim();
-            if (InputUtils.ValidateAndWarn(
-                string.IsNullOrWhiteSpace(newVal) ||
-                !(newVal.Equals("Unlimited", StringComparison.OrdinalIgnoreCase) ||
-                  (int.TryParse(newVal, out int val) && val >= 0)),
-                "From same IP must be an integer not less than 0\n\n 0 = Unlimited.", FromSameIpTextBox))
-            {
-                FromSameIpTextBox.Text = _oldFromSameIp;
-                return;
-            }
-            if (_oldFromSameIp == newVal) return;
-            await ApplyUserChange($"SITE CHANGE {_username} num_logins {newVal}", _oldFromSameIp!, v => _oldFromSameIp = v, FromSameIpTextBox);
+            await UpdateNumLoginsAsync(changedMaxField: false);
         }
-        
+
         private async void TaglineTextBox_LostFocus(object sender, RoutedEventArgs e)
         {
             string newVal = TaglineTextBox.Text.Trim();
@@ -600,7 +629,7 @@ namespace glFTPd_Commander.Views
                 return;
             }
             if (_oldMaxSimDownloads == newVal) return;
-            await ApplyUserChange($"SITE CHANGE {_username} max_sim_dn {newVal}", _oldMaxSimDownloads!, v => _oldMaxSimDownloads = v, MaxSimDownloadsTextBox);
+            await ApplyUserChange($"SITE CHANGE {_username} max_sim_down {newVal}", _oldMaxSimDownloads!, v => _oldMaxSimDownloads = v, MaxSimDownloadsTextBox);
         }
 
         private async void TimeLimitTextBox_LostFocus(object sender, RoutedEventArgs e)

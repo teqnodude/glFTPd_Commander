@@ -107,7 +107,7 @@ permissions in the config file.</TextBlock>
             <TextBox
                 x:Name="UserCommentTextBox"
                 Margin="0,0,0,5"
-                GotKeyboardFocus="SelectAllText"
+                GotFocus="SelectAllText"
                 LostFocus="UserCommentTextBox_LostFocus"
                 ToolTip="Max 49 symbols" />
 
@@ -135,7 +135,7 @@ permissions in the config file.</TextBlock>
             <TextBox
                 x:Name="RatiosTextBox"
                 Margin="0,0,0,5"
-                GotKeyboardFocus="SelectAllText"
+                GotFocus="SelectAllText"
                 LostFocus="RatiosTextBox_LostFocus"
                 ToolTip="3 = Upload 1 MiB per 3 MiB downloaded, 0 = Unlimited" />
 
@@ -176,7 +176,7 @@ permissions in the config file.</TextBlock>
             <TextBox
                 x:Name="MaxLoginsTextBox"
                 Margin="0,0,0,5"
-                GotKeyboardFocus="SelectAllText"
+                GotFocus="SelectAllText"
                 LostFocus="MaxLoginsTextBox_LostFocus"
                 ToolTip="0 = Unlimited" />
 
@@ -184,7 +184,7 @@ permissions in the config file.</TextBlock>
             <TextBox
                 x:Name="MaxSimUploadsTextBox"
                 Margin="0,0,0,5"
-                GotKeyboardFocus="SelectAllText"
+                GotFocus="SelectAllText"
                 LostFocus="MaxSimUploadsTextBox_LostFocus"
                 ToolTip="-1 = Unlimited, 0 = None, max 30000" />
 
@@ -192,7 +192,7 @@ permissions in the config file.</TextBlock>
             <TextBox
                 x:Name="MaxSimDownloadsTextBox"
                 Margin="0,0,0,5"
-                GotKeyboardFocus="SelectAllText"
+                GotFocus="SelectAllText"
                 LostFocus="MaxSimDownloadsTextBox_LostFocus"
                 ToolTip="-1 = Unlimited, 0 = None" />
 
@@ -200,7 +200,7 @@ permissions in the config file.</TextBlock>
             <TextBox
                 x:Name="FromSameIpTextBox"
                 Margin="0,0,0,5"
-                GotKeyboardFocus="SelectAllText"
+                GotFocus="SelectAllText"
                 LostFocus="FromSameIpTextBox_LostFocus"
                 ToolTip="0 = Unlimited" />
         </StackPanel>
@@ -215,7 +215,7 @@ permissions in the config file.</TextBlock>
             <TextBox
                 x:Name="ExpiresTextBox"
                 Margin="0,0,0,5"
-                GotKeyboardFocus="SelectAllText"
+                GotFocus="SelectAllText"
                 LostFocus="ExpiresTextBox_LostFocus"
                 ToolTip="YYYY-mm-dd, 0 = disable" />
 
@@ -229,7 +229,7 @@ permissions in the config file.</TextBlock>
             <TextBox
                 x:Name="IdleTimeTextBox"
                 Margin="0,0,0,5"
-                GotKeyboardFocus="SelectAllText"
+                GotFocus="SelectAllText"
                 LostFocus="IdleTimeTextBox_LostFocus"
                 ToolTip="In seconds, -1 = Disable" />
 
@@ -294,7 +294,7 @@ permissions in the config file.</TextBlock>
             <TextBox
                 x:Name="TimeLimitTextBox"
                 Margin="0,0,0,5"
-                GotKeyboardFocus="SelectAllText"
+                GotFocus="SelectAllText"
                 LostFocus="TimeLimitTextBox_LostFocus"
                 ToolTip="In minutes, 0 = Unlimited" />
 
@@ -302,7 +302,7 @@ permissions in the config file.</TextBlock>
             <TextBox
                 x:Name="TimeframeTextBox"
                 Margin="0,0,0,5"
-                GotKeyboardFocus="SelectAllText"
+                GotFocus="SelectAllText"
                 LostFocus="TimeframeTextBox_LostFocus"
                 ToolTip="8 17 for between 08-17" />
 
@@ -310,7 +310,7 @@ permissions in the config file.</TextBlock>
             <TextBox
                 x:Name="TaglineTextBox"
                 Margin="0,0,0,5"
-                GotKeyboardFocus="SelectAllText"
+                GotFocus="SelectAllText"
                 LostFocus="TaglineTextBox_LostFocus"
                 ToolTip="Max 63 symbols" />
         </StackPanel>
