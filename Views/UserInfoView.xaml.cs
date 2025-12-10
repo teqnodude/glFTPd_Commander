@@ -49,13 +49,17 @@ namespace glFTPd_Commander.Views
             try
             {
                 ResetAllFields();
-                _ftpClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
-                    if (_ftpClient == null) return;
 
+                // Use local currentClient variable to avoid multiple field assignments
+                // _ftpClient is updated only once at the end of the method
+                var currentClient = await GlFtpdClient.EnsureConnectedWithUiAsync(_ftp, _ftpClient);
+                if (currentClient == null) return;
+
+                // Load user details
                 var (userDetails, updatedClient) = await FtpBase.ExecuteWithConnectionAsync(
-                    _ftpClient, _ftp!, c => Task.Run(() => _ftp!.GetUserDetails(_username, c))
+                    currentClient, _ftp!, c => Task.Run(() => _ftp!.GetUserDetails(_username, c))
                 );
-                _ftpClient = updatedClient;
+                currentClient = updatedClient;
 
                 if (userDetails == null)
                 {
@@ -90,11 +94,11 @@ namespace glFTPd_Commander.Views
                 NoRestrictionsTextBlock.Visibility = restrictions.Count > 0 ? Visibility.Collapsed : Visibility.Visible;
 
 
-                // Get all groups (with connection safety)
+                // Load groups
                 var (allGroups, groupsUpdatedClient) = await FtpBase.ExecuteWithConnectionAsync(
-                    _ftpClient, _ftp!, c => _ftp!.GetGroups(c)
+                    currentClient, _ftp!, c => _ftp!.GetGroups(c)
                 );
-                _ftpClient = groupsUpdatedClient;
+                currentClient = groupsUpdatedClient;
 
                 var userGroupsNormalized = new HashSet<string>(
                 userDetails.Groups.Select(g => g.TrimStart('*', '+')), StringComparer.OrdinalIgnoreCase);
@@ -118,9 +122,18 @@ namespace glFTPd_Commander.Views
                     .ToList();
                 GroupAdminListBox.ItemsSource = adminGroupsUserIsIn;
 
-                var (reply, updatedClient2) = await FtpBase.ExecuteFtpCommandWithReconnectAsync($"SITE USER {_username}", _ftpClient, _ftp!);
-                _ftpClient = updatedClient2;
+                // Load detailed user info
+                var (reply, userInfoClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync($"SITE USER {_username}", currentClient, _ftp!);
+                currentClient = userInfoClient;
                 if (!string.IsNullOrEmpty(reply)) ParseDetailedUserInfo(reply);
+
+                // Load user stats
+                var (statsReply, statsClient) = await FtpBase.ExecuteFtpCommandWithReconnectAsync($"SITE STATS {_username}", currentClient, _ftp!);
+                currentClient = statsClient;
+                if (!string.IsNullOrWhiteSpace(statsReply)) ParseAndApplyUserStats(statsReply);
+
+                _ftpClient = currentClient;
+
             }
             catch (Exception ex)
             {
@@ -318,6 +331,109 @@ namespace glFTPd_Commander.Views
                 }
             }
         }
+
+        private void ParseAndApplyUserStats(string raw)
+        {
+            // Remove any leading "200-" prefixes and '|' column markers, split lines
+            var lines = raw
+                .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(l => l.Trim())
+                .Where(l => !string.IsNullOrWhiteSpace(l))
+                .ToList();
+
+            foreach (var line in lines)
+            {
+                // Remove "200-" prefix and any surrounding '|' characters, then collapse multiple spaces
+                var cleaned = line.Replace("200-", "").Replace("|", " ").Trim();
+                // Split on two or more spaces — this yields columns like: [CATEGORY], [FILES], [BYTES], [AVG RATE]
+                var cols = System.Text.RegularExpressions.Regex.Split(cleaned, @"\s{2,}")
+                    .Select(s => s.Trim())
+                    .Where(s => !string.IsNullOrEmpty(s))
+                    .ToArray();
+
+                if (cols.Length < 2) continue;
+
+                // First column may be like "ALLTIME UP" or "MONTH DOWN" — normalize to uppercase
+                var key = cols[0].ToUpperInvariant();
+
+                // Many servers include header/footer lines; skip those
+                if (key.Contains("DEFAULT") || key.Contains("FILES") || key.StartsWith("+---")) continue;
+
+                switch (key)
+                {
+                    case var k when k.StartsWith("ALLTIME UP"):
+                        ApplyStatsRow(cols, AlltimeUpFilesTextBox, AlltimeUpBytesTextBox, AlltimeUpAvgRateTextBox);
+                        break;
+                    case var k when k.StartsWith("ALLTIME DOWN"):
+                        ApplyStatsRow(cols, AlltimeDownFilesTextBox, AlltimeDownBytesTextBox, AlltimeDownAvgRateTextBox);
+                        break;
+                    case var k when k.StartsWith("MONTH UP"):
+                        ApplyStatsRow(cols, MonthUpFilesTextBox, MonthUpBytesTextBox, MonthUpAvgRateTextBox);
+                        break;
+                    case var k when k.StartsWith("MONTH DOWN"):
+                        ApplyStatsRow(cols, MonthDownFilesTextBox, MonthDownBytesTextBox, MonthDownAvgRateTextBox);
+                        break;
+                    case var k when k.StartsWith("WEEK UP"):
+                        ApplyStatsRow(cols, WeekUpFilesTextBox, WeekUpBytesTextBox, WeekUpAvgRateTextBox);
+                        break;
+                    case var k when k.StartsWith("WEEK DOWN"):
+                        ApplyStatsRow(cols, WeekDownFilesTextBox, WeekDownBytesTextBox, WeekDownAvgRateTextBox);
+                        break;
+                    case var k when k.StartsWith("DAY UP"):
+                        ApplyStatsRow(cols, DayUpFilesTextBox, DayUpBytesTextBox, DayUpAvgRateTextBox);
+                        break;
+                    case var k when k.StartsWith("DAY DOWN"):
+                        ApplyStatsRow(cols, DayDownFilesTextBox, DayDownBytesTextBox, DayDownAvgRateTextBox);
+                        break;
+                    default:
+                        // ignore other lines
+                        break;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Given extracted columns (cols), populate the three textboxes:
+        /// expected cols either:
+        ///   [0]=CATEGORY, [1]=FILES, [2]=BYTES, [3]=AVG
+        /// or in some formats there may be extra columns; this helper is defensive.
+        /// </summary>
+        private void ApplyStatsRow(string[] cols, TextBox filesBox, TextBox bytesBox, TextBox rateBox)
+        {
+            try
+            {
+                // If row has at least 4 columns use them directly
+                if (cols.Length >= 4)
+                {
+                    filesBox.Text = cols[1];
+                    bytesBox.Text = cols[2];
+                    rateBox.Text = cols[3];
+                    return;
+                }
+
+                // Fallback: try to split the first column into tokens if everything squashed
+                var firstTokens = cols[0].Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                if (cols.Length == 2 && firstTokens.Length >= 2)
+                {
+                    // cols[1] is likely files, cols[0] contains category words
+                    filesBox.Text = cols[1];
+                    // bytes and rate unknown
+                    bytesBox.Text = "";
+                    rateBox.Text = "";
+                    return;
+                }
+
+                // As last resort, clear boxes
+                filesBox.Text = "";
+                bytesBox.Text = "";
+                rateBox.Text = "";
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[UserInfoView] ApplyStatsRow parse error: {ex}");
+            }
+        }
+
 
         private static string ParseRatioValue(string val)
         {
