@@ -314,15 +314,19 @@ permissions in the config file.</TextBlock>
                 LostFocus="TaglineTextBox_LostFocus"
                 ToolTip="Max 63 symbols" />
         </StackPanel>
-        <Grid
-            Grid.Row="1"
-            Grid.Column="2"
-            Margin="10,0,0,0">
+        <Grid Grid.Row="1" Grid.Column="2" Margin="10,0,0,0">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
+                <!-- Groups/Admin -->
                 <RowDefinition Height="*" />
+                <!-- IP Restrictions + Stats side-by-side -->
                 <RowDefinition Height="Auto" />
+                <!-- Buttons -->
             </Grid.RowDefinitions>
+
+            <!-- ===============================
+            ROW 0 — GROUPS / GROUP ADMIN
+            ================================ -->
             <StackPanel Grid.Row="0">
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -330,154 +334,251 @@ permissions in the config file.</TextBlock>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="250" />
                         <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="250" />
                     </Grid.ColumnDefinitions>
+
+                    <!-- Available Groups -->
                     <StackPanel Grid.Column="0">
                         <Label Content="Available Groups:" />
                         <ListBox
-                            x:Name="AvailableGroupsListBox"
-                            Width="250"
-                            Height="250"
-                            HorizontalAlignment="Left"
-                            SelectionMode="Extended" />
+                    x:Name="AvailableGroupsListBox"
+                    Width="250"
+                    Height="250"
+                    HorizontalAlignment="Left"
+                    SelectionMode="Extended" />
                     </StackPanel>
-                    <StackPanel
-                        Grid.Column="1"
-                        Margin="10,0,10,0"
-                        VerticalAlignment="Center">
-                        <Button
-                            x:Name="AddGroupButton"
-                            Width="100"
-                            Margin="0,10,0,0"
-                            Click="AddGroupButton_Click"
-                            Content="Add →" />
-                        <Button
-                            x:Name="RemoveGroupButton"
-                            Width="100"
-                            Margin="0,10,0,0"
-                            Click="RemoveGroupButton_Click"
-                            Content="← Remove" />
+
+                    <!-- Add / Remove Buttons -->
+                    <StackPanel Grid.Column="1" Margin="10,0,10,0" VerticalAlignment="Center">
+                        <Button x:Name="AddGroupButton" Width="100"
+                        Margin="0,10,0,0"
+                        Click="AddGroupButton_Click"
+                        Content="Add →" />
+                        <Button x:Name="RemoveGroupButton" Width="100"
+                        Margin="0,10,0,0"
+                        Click="RemoveGroupButton_Click"
+                        Content="← Remove" />
                     </StackPanel>
+
+                    <!-- User Groups -->
                     <StackPanel Grid.Column="2">
                         <Label Content="User's Groups:" />
                         <ListBox
-                            x:Name="UserGroupsListBox"
-                            Width="250"
-                            Height="250"
-                            HorizontalAlignment="Left"
-                            SelectionMode="Extended" />
+                    x:Name="UserGroupsListBox"
+                    Width="250"
+                    Height="250"
+                    HorizontalAlignment="Left"
+                    SelectionMode="Extended" />
                     </StackPanel>
-                    <StackPanel
-                        Grid.Column="3"
-                        Margin="10,0,10,0"
-                        VerticalAlignment="Center">
-                        <Button
-                            x:Name="AddGroupAdminButton"
-                            Width="100"
-                            Margin="0,10,0,0"
-                            Click="AddGroupAdminButton_Click"
-                            Content="Add →" />
-                        <Button
-                            x:Name="RemoveGroupAdminButton"
-                            Width="100"
-                            Margin="0,10,0,0"
-                            Click="RemoveGroupAdminButton_Click"
-                            Content="← Remove" />
+
+                    <!-- Add / Remove Group Admin -->
+                    <StackPanel Grid.Column="3" Margin="10,0,10,0" VerticalAlignment="Center">
+                        <Button x:Name="AddGroupAdminButton" Width="100"
+                        Margin="0,10,0,0"
+                        Click="AddGroupAdminButton_Click"
+                        Content="Add →" />
+                        <Button x:Name="RemoveGroupAdminButton" Width="100"
+                        Margin="0,10,0,0"
+                        Click="RemoveGroupAdminButton_Click"
+                        Content="← Remove" />
                     </StackPanel>
+
+                    <!-- Group Admin -->
                     <StackPanel Grid.Column="4">
                         <Label Content="Group Admin:" />
                         <ListBox
-                            x:Name="GroupAdminListBox"
-                            Width="250"
-                            Height="250"
-                            HorizontalAlignment="Left"
-                            SelectionMode="Extended" />
+                    x:Name="GroupAdminListBox"
+                    Width="250"
+                    Height="250"
+                    HorizontalAlignment="Left"
+                    SelectionMode="Extended" />
                     </StackPanel>
                 </Grid>
-                <Label Margin="0,10,0,0" Content="IP Restrictions:" />
-                <StackPanel Orientation="Horizontal">
+            </StackPanel>
+
+            <!-- ==========================================
+            ROW 1 — IP Restrictions (left)
+                 User Stats (right)
+            =========================================== -->
+            <Grid Grid.Row="1" Margin="0,10,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="260" />
+                    <!-- Left: IP Restrictions -->
+                    <ColumnDefinition Width="30"  />
+                    <!-- Spacer -->
+                    <ColumnDefinition Width="*"   />
+                    <!-- Right: User Stats -->
+                </Grid.ColumnDefinitions>
+
+                <!-- LEFT SIDE — IP RESTRICTIONS -->
+                <StackPanel Grid.Column="0">
+                    <Label Content="IP Restrictions:" />
+
                     <DataGrid
-                        x:Name="IpRestrictionsDataGrid"
-                        Width="250"
-                        MaxHeight="450"
-                        Margin="0,0,0,5"
-                        AutoGenerateColumns="False"
-                        BeginningEdit="IpRestrictionsDataGrid_BeginningEdit"
-                        CanUserAddRows="False"
-                        CanUserDeleteRows="False"
-                        CanUserReorderColumns="False"
-                        CanUserResizeRows="False"
-                        CellEditEnding="IpRestrictionsDataGrid_CellEditEnding"
-                        HeadersVisibility="Column"
-                        IsReadOnly="False"
-                        SelectionMode="Extended"
-                        SelectionUnit="FullRow">
+                x:Name="IpRestrictionsDataGrid"
+                Width="250"
+                MaxHeight="450"
+                Margin="0,0,0,5"
+                AutoGenerateColumns="False"
+                BeginningEdit="IpRestrictionsDataGrid_BeginningEdit"
+                CanUserAddRows="False"
+                CanUserDeleteRows="False"
+                CanUserReorderColumns="False"
+                CanUserResizeRows="False"
+                CellEditEnding="IpRestrictionsDataGrid_CellEditEnding"
+                HeadersVisibility="Column"
+                IsReadOnly="False"
+                SelectionMode="Extended"
+                SelectionUnit="FullRow">
                         <DataGrid.Columns>
                             <DataGridTextColumn
-                                Width="40"
-                                Binding="{Binding IpKey}"
-                                Header="IP#"
-                                IsReadOnly="True" />
+                        Width="40"
+                        Binding="{Binding IpKey}"
+                        Header="IP#"
+                        IsReadOnly="True" />
                             <DataGridTextColumn
-                                Width="*"
-                                Binding="{Binding IpValue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                Header="IP Address" />
+                        Width="*"
+                        Binding="{Binding IpValue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                        Header="IP Address" />
                         </DataGrid.Columns>
                     </DataGrid>
+
+                    <StackPanel Margin="0,5" Orientation="Horizontal">
+                        <Button
+                    x:Name="AddIpButton"
+                    Width="75"
+                    Click="AddIpButton_Click"
+                    Content="Add IP" />
+                        <Button
+                    x:Name="RemoveIpButton"
+                    Width="75"
+                    Margin="10,0,0,0"
+                    Click="RemoveIpButton_Click"
+                    Content="Remove IP" />
+                    </StackPanel>
+
+                    <TextBlock
+                x:Name="NoRestrictionsTextBlock"
+                FontStyle="Italic"
+                Text="No IP restrictions configured"
+                Visibility="Collapsed" />
                 </StackPanel>
-                <StackPanel Margin="0,5" Orientation="Horizontal">
-                    <Button
-                        x:Name="AddIpButton"
-                        Width="75"
-                        Margin="0,0,0,0"
-                        Click="AddIpButton_Click"
-                        Content="Add IP" />
-                    <Button
-                        x:Name="RemoveIpButton"
-                        Width="75"
-                        Margin="100,0,0,0"
-                        Click="RemoveIpButton_Click"
-                        Content="Remove IP" />
+
+                <!-- RIGHT SIDE — USER STATS -->
+                <StackPanel Grid.Column="2" Margin="80,0,0,0">
+
+                    <!-- *** YOUR ORIGINAL STATS BLOCK, UNCHANGED *** -->
+                    <Grid Margin="0,10,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="150" />
+                            <ColumnDefinition Width="100" />
+                            <ColumnDefinition Width="150" />
+                            <ColumnDefinition Width="120" />
+                        </Grid.ColumnDefinitions>
+
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- ALL YOUR ORIGINAL FIELD NAMES PRESERVED EXACTLY -->
+                        <Label Grid.Row="0" Grid.Column="0" Content="User Stats:" FontSize="14" />
+                        <Label Grid.Row="0" Grid.Column="1" Content="Files" />
+                        <Label Grid.Row="0" Grid.Column="2" Content="Bytes" />
+                        <Label Grid.Row="0" Grid.Column="3" Content="Avg Rate" />
+
+                        <Label Grid.Row="1" Grid.Column="0" Content="ALLTIME UP" VerticalAlignment="Center"/>
+                        <TextBox x:Name="AlltimeUpFilesTextBox" Grid.Row="1" Grid.Column="1" IsReadOnly="True" Margin="0,0,10,5"/>
+                        <TextBox x:Name="AlltimeUpBytesTextBox" Grid.Row="1" Grid.Column="2" IsReadOnly="True" Margin="0,0,10,5"/>
+                        <TextBox x:Name="AlltimeUpAvgRateTextBox" Grid.Row="1" Grid.Column="3" IsReadOnly="True" Margin="0,0,10,5"/>
+
+                        <Label Grid.Row="2" Grid.Column="0" Content="ALLTIME DOWN" VerticalAlignment="Center"/>
+                        <TextBox x:Name="AlltimeDownFilesTextBox" Grid.Row="2" Grid.Column="1" IsReadOnly="True" Margin="0,0,10,5"/>
+                        <TextBox x:Name="AlltimeDownBytesTextBox" Grid.Row="2" Grid.Column="2" IsReadOnly="True" Margin="0,0,10,5"/>
+                        <TextBox x:Name="AlltimeDownAvgRateTextBox" Grid.Row="2" Grid.Column="3" IsReadOnly="True" Margin="0,0,10,5"/>
+
+                        <Label Grid.Row="3" Grid.Column="0" Content="MONTH UP" VerticalAlignment="Center"/>
+                        <TextBox x:Name="MonthUpFilesTextBox" Grid.Row="3" Grid.Column="1" IsReadOnly="True" Margin="0,0,10,5"/>
+                        <TextBox x:Name="MonthUpBytesTextBox" Grid.Row="3" Grid.Column="2" IsReadOnly="True" Margin="0,0,10,5"/>
+                        <TextBox x:Name="MonthUpAvgRateTextBox" Grid.Row="3" Grid.Column="3" IsReadOnly="True" Margin="0,0,10,5"/>
+
+                        <Label Grid.Row="4" Grid.Column="0" Content="MONTH DOWN" VerticalAlignment="Center"/>
+                        <TextBox x:Name="MonthDownFilesTextBox" Grid.Row="4" Grid.Column="1" IsReadOnly="True" Margin="0,0,10,5"/>
+                        <TextBox x:Name="MonthDownBytesTextBox" Grid.Row="4" Grid.Column="2" IsReadOnly="True" Margin="0,0,10,5"/>
+                        <TextBox x:Name="MonthDownAvgRateTextBox" Grid.Row="4" Grid.Column="3" IsReadOnly="True" Margin="0,0,10,5"/>
+
+                        <Label Grid.Row="5" Grid.Column="0" Content="WEEK UP" VerticalAlignment="Center"/>
+                        <TextBox x:Name="WeekUpFilesTextBox" Grid.Row="5" Grid.Column="1" IsReadOnly="True" Margin="0,0,10,5"/>
+                        <TextBox x:Name="WeekUpBytesTextBox" Grid.Row="5" Grid.Column="2" IsReadOnly="True" Margin="0,0,10,5"/>
+                        <TextBox x:Name="WeekUpAvgRateTextBox" Grid.Row="5" Grid.Column="3" IsReadOnly="True" Margin="0,0,10,5"/>
+
+                        <Label Grid.Row="6" Grid.Column="0" Content="WEEK DOWN" VerticalAlignment="Center"/>
+                        <TextBox x:Name="WeekDownFilesTextBox" Grid.Row="6" Grid.Column="1" IsReadOnly="True" Margin="0,0,10,5"/>
+                        <TextBox x:Name="WeekDownBytesTextBox" Grid.Row="6" Grid.Column="2" IsReadOnly="True" Margin="0,0,10,5"/>
+                        <TextBox x:Name="WeekDownAvgRateTextBox" Grid.Row="6" Grid.Column="3" IsReadOnly="True" Margin="0,0,10,5"/>
+
+                        <Label Grid.Row="7" Grid.Column="0" Content="DAY UP" VerticalAlignment="Center"/>
+                        <TextBox x:Name="DayUpFilesTextBox" Grid.Row="7" Grid.Column="1" IsReadOnly="True" Margin="0,0,10,5"/>
+                        <TextBox x:Name="DayUpBytesTextBox" Grid.Row="7" Grid.Column="2" IsReadOnly="True" Margin="0,0,10,5"/>
+                        <TextBox x:Name="DayUpAvgRateTextBox" Grid.Row="7" Grid.Column="3" IsReadOnly="True" Margin="0,0,10,5"/>
+
+                        <Label Grid.Row="8" Grid.Column="0" Content="DAY DOWN" VerticalAlignment="Center"/>
+                        <TextBox x:Name="DayDownFilesTextBox" Grid.Row="8" Grid.Column="1" IsReadOnly="True" Margin="0,0,10,5"/>
+                        <TextBox x:Name="DayDownBytesTextBox" Grid.Row="8" Grid.Column="2" IsReadOnly="True" Margin="0,0,10,5"/>
+                        <TextBox x:Name="DayDownAvgRateTextBox" Grid.Row="8" Grid.Column="3" IsReadOnly="True" Margin="0,0,10,5"/>
+                    </Grid>
                 </StackPanel>
-                <TextBlock
-                    x:Name="NoRestrictionsTextBlock"
-                    FontStyle="Italic"
-                    Text="No IP restrictions configured"
-                    Visibility="Collapsed" />
-            </StackPanel>
+            </Grid>
+
+
+            <!-- ===============================
+            ROW 2 — ACTION BUTTONS
+            ================================ -->
             <StackPanel
-                Grid.Row="2"
-                Margin="0,0,0,0"
-                HorizontalAlignment="Right"
-                Orientation="Horizontal">
+            Grid.Row="2"
+            HorizontalAlignment="Right"
+            Orientation="Horizontal">
+
                 <Button
-                    x:Name="UserPurgeButton"
-                    Width="110"
-                    Height="35"
-                    Margin="0,0,0,0"
-                    Background="Red"
-                    Click="UserPurge_Click"
-                    Content="Purge User"
-                    Visibility="Collapsed" />
+            x:Name="UserPurgeButton"
+            Width="110"
+            Height="35"
+            Margin="0,0,0,0"
+            Background="Red"
+            Click="UserPurge_Click"
+            Content="Purge User"
+            Visibility="Collapsed" />
+
                 <Button
-                    x:Name="UserRemoveButton"
-                    Width="110"
-                    Height="35"
-                    Margin="10,0,0,0"
-                    Background="Red"
-                    Click="UserRemove_Click"
-                    Content="Remove User" />
+            x:Name="UserRemoveButton"
+            Width="110"
+            Height="35"
+            Margin="10,0,0,0"
+            Background="Red"
+            Click="UserRemove_Click"
+            Content="Remove User" />
+
                 <Button
-                    x:Name="UserReAddButton"
-                    Width="110"
-                    Height="35"
-                    Margin="10,0,0,0"
-                    Background="Green"
-                    Click="UserReAdd_Click"
-                    Content="ReAdd User"
-                    Visibility="Collapsed" />
+            x:Name="UserReAddButton"
+            Width="110"
+            Height="35"
+            Margin="10,0,0,0"
+            Background="Green"
+            Click="UserReAdd_Click"
+            Content="ReAdd User"
+            Visibility="Collapsed" />
+
             </StackPanel>
+
         </Grid>
+
     </Grid>
 
 </local:BaseUserControl>
