@@ -402,9 +402,9 @@ permissions in the config file.</TextBlock>
             =========================================== -->
             <Grid Grid.Row="1" Margin="0,10,0,0">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="260" />
+                    <ColumnDefinition Width="250" />
                     <!-- Left: IP Restrictions -->
-                    <ColumnDefinition Width="30"  />
+                    <ColumnDefinition Width="40"  />
                     <!-- Spacer -->
                     <ColumnDefinition Width="*"   />
                     <!-- Right: User Stats -->

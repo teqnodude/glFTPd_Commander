@@ -1,11 +1,11 @@
 # Development
 ## This tool will not work for any other FTP server.
 
-The purpose behind this project is to create the ultimate glFTPd tool to manage users and groups. 
+The purpose behind this project is to create the ultimate glFTPd tool to manage users and groups.
 
-The requirement is .NET 9 (.NET Desktop Runtime 9) that can be downloaded from https://dotnet.microsoft.com/en-us/download/dotnet/9.0
+The requirement is .NET 9 (.NET Desktop Runtime 9), which can be downloaded from https://dotnet.microsoft.com/en-us/download/dotnet/9.0
 
-It comes with a built-in update checker that triggers a background update program if a new version is found and the user wants it. The background update program is included in the releases where the source code for the background update program can be found here: https://github.com/teqnodude/glFTPd_Commander-Updater.
+The software includes an automatic update feature. When a new version is available, the user is prompted and can authorize a seamless background installation. The updater tool is bundled with all releases, and its source code is available here https://github.com/teqnodude/glFTPd_Commander-Updater.
 
 ## Screenshots
 
